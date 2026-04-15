@@ -420,9 +420,7 @@ function clearNoCode() {
 }
 
 async function startDeploy(user, token, repoName, treePayload) {
-    setStatus('Subiendo a GitHub...', `Chequeando repositorio: ${repoName}...`)
-    try { await ghCall(`/repos/${user}/${repoName}`, token) }
-    catch (e) { if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) } else throw e }
+    setStatus('Subiendo a GitHub...', `Enviando estructura de archivos...`)
     const treeRes = await ghCall(`/repos/${user}/${repoName}/git/trees`, token, 'POST', { tree: treePayload })
     const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', { message: 'Deploy via AR Publisher', tree: treeRes.sha })
 
@@ -447,6 +445,10 @@ async function publishNoCode() {
   hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
   
   try {
+    setStatus('Chequeando Repositorio', 'Asegurando espacio en la nube...');
+    try { await ghCall(`/repos/${user}/${repoName}`, token) }
+    catch (e) { if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) } else throw e }
+
     setStatus('Procesando Vision Mágica', 'Convirtiendo tracking points...')
     const targetName = 'm_target'
     const data = await generateTargetDataFromBlob(ncImgBlob, targetName)
