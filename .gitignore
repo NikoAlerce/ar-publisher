@@ -1,0 +1,4 @@
+node_modules/
+_tmp/
+config.json
+.vscode/
