@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AR Publisher & Target Generator</title>
+  <title>AR Publisher & No-Code Creator</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root {
       --bg: #08090d; --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
       --text: #f1f5f9; --dim: rgba(241,245,249,0.45); --muted: rgba(241,245,249,0.25);
-      --accent: #6366f1; --accent2: #818cf8; --green: #10b981; --red: #ef4444;
+      --accent: #6366f1; --accent2: #818cf8; --green: #10b981; --red: #ef4444; --orange: #f59e0b;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
@@ -24,7 +24,7 @@
       background: radial-gradient(ellipse, rgba(99,102,241,0.08), transparent 70%);
       pointer-events:none;
     }
-    .container { width: 100%; max-width: 560px; position: relative; z-index: 1; }
+    .container { width: 100%; max-width: 600px; position: relative; z-index: 1; }
 
     /* ── Header ── */
     .logo { text-align: center; margin-bottom: 24px; }
@@ -57,48 +57,29 @@
 
     /* ── Drop zone ── */
     .drop-zone {
-      border: 2px dashed rgba(99,102,241,0.35); border-radius: 20px;
-      padding: 50px 30px; text-align: center; cursor: pointer;
-      transition: all 0.2s; background: rgba(99,102,241,0.03);
+      border: 2px dashed rgba(99,102,241,0.35); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(99,102,241,0.03); min-height: 140px; margin-bottom: 16px;
     }
-    .drop-zone:hover, .drop-zone.over {
-       border-color: var(--accent); background: rgba(99,102,241,0.08); transform: scale(1.01);
-    }
-    .drop-zone svg { width: 56px; height: 56px; color: var(--accent2); opacity: 0.5; margin-bottom: 16px; }
-    .drop-zone h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-    .drop-zone p { color: var(--dim); font-size: 13px; }
-
-    .repo-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; justify-content: center; }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: rgba(99,102,241,0.08); transform: scale(1.01); }
+    .drop-zone svg { width: 44px; height: 44px; color: var(--accent2); opacity: 0.5; margin-bottom: 12px; }
+    .drop-zone h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .drop-zone p { color: var(--dim); font-size: 12px; }
+    .dz-dual { display: flex; gap: 12px; }
+    .dz-dual .drop-zone { flex: 1; margin-bottom: 0; padding: 20px 10px; }
+    
+    .repo-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; justify-content: center; }
     .repo-label { font-size: 12px; color: var(--dim); }
-    .repo-input {
-      padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono'; font-size: 13px; width: 220px;
-    }
+    .repo-input { padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono'; font-size: 13px; width: 220px; }
 
     /* ── File selected ── */
     .file-bar {
-      display: flex; align-items: center; gap: 12px; padding: 14px 18px; margin-top: 16px;
-      background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22);
-      border-radius: 12px; animation: fadeIn 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 18px; margin-top: 12px;
+      background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); border-radius: 12px; animation: fadeIn 0.2s;
     }
-    .file-bar .name { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-bar .clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px; align-self: center; display: flex; align-items: center; height: 100%;}
+    .file-bar .name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;}
+    .file-bar .clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px; display: flex; align-items: center; height: 100%;}
     .file-bar .clear:hover { color: var(--red); }
-
-    /* ── Image Preview ── */
-    .img-preview-box {
-      margin-top: 16px; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px;
-      animation: fadeIn 0.2s;
-    }
-    .img-preview-box img {
-      max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
-    }
-    .img-preview-box .clear { 
-      background: rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); 
-      color: #fca5a5; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; 
-    }
-
+    
     /* ── Pub Btn ── */
     .pub-btn {
       display: block; width: 100%; margin-top: 20px; padding: 18px; border: none; border-radius: 14px;
@@ -107,28 +88,26 @@
     }
     .pub-btn:active { transform: scale(0.98); }
     .pub-btn.btn-green { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 6px 28px rgba(16,185,129,0.3); }
+    .pub-btn.btn-orange { background: linear-gradient(135deg, #f59e0b, #ea580c); box-shadow: 0 6px 28px rgba(245,158,11,0.3); }
     .pub-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
+    /* ── Details Box ── */
+    .details { font-size: 13px; color: var(--dim); line-height: 1.5; background: rgba(0,0,0,0.2); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;}
+
     /* ── Loading ── */
-    .loading {
-      position: fixed; inset: 0; background: rgba(8,9,13,0.9); backdrop-filter: blur(8px);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999;
-    }
+    .loading { position: fixed; inset: 0; background: rgba(8,9,13,0.9); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
     .spinner { width: 44px; height: 44px; border: 3px solid rgba(99,102,241,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 18px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading p { font-size: 15px; font-weight: 600; }
     .loading .sub { font-size: 12px; color: var(--accent2); margin-top: 6px; font-family: 'JetBrains Mono'; text-align: center; }
 
-    /* ── Result & Error ── */
-    .result {
-      margin-top: 28px; padding: 28px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2);
-      border-radius: 20px; animation: fadeIn 0.3s; text-align: center;
-    }
+    /* ── Result ── */
+    .result { margin-top: 28px; padding: 28px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 20px; animation: fadeIn 0.3s; text-align: center; }
     .result h3 { font-size: 20px; margin-bottom: 20px; }
     .qr-wrap { display: inline-block; background: white; padding: 10px; border-radius: 12px; margin-bottom: 16px; }
     .qr-wrap img { width: 180px; height: 180px; }
     .link { display: block; color: var(--accent2); font-family: 'JetBrains Mono'; font-size: 14px; text-decoration: none; margin-bottom: 6px; }
-    .error-bar { margin-top: 16px; padding: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; color: #fca5a5; font-size: 13px; }
+    .error-bar { margin-top: 16px; padding: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; color: #fca5a5; font-size: 13px; text-align: center; }
 
     .hidden { display: none !important; }
     @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
@@ -143,115 +122,127 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" id="tab-btn-publish" onclick="switchTab('publish')">🚀 Publicar a Vercel/GitHub</div>
-    <div class="tab" id="tab-btn-target" onclick="switchTab('target')">🎯 Crear Image Target</div>
+    <div class="tab active" id="tab-btn-publish" onclick="switchTab('publish')">🚀 Desktop Studio ZIP</div>
+    <div class="tab" id="tab-btn-target" onclick="switchTab('target')">🎯 Crear Target</div>
+    <div class="tab" id="tab-btn-nocode" onclick="switchTab('nocode')">⚡ Auto-Creator (No Code)</div>
   </div>
 
-  <!-- SECTION: PUBLISH AR EXPERIENCE -->
-  <div id="section-publish">
-    <div class="config-panel">
-      <div class="config-row">
-        <div class="c-group">
-          <label>Usuario de GitHub</label>
-          <input type="text" class="c-input" id="gh-user" placeholder="ej: NikoAlerce" spellcheck="false" />
-        </div>
-        <div class="c-group">
-          <label>GitHub Token (Classic)</label>
-          <input type="password" class="c-input" id="gh-token" placeholder="ghp_XXX..." spellcheck="false" />
-        </div>
+  <!-- Common Config Panel for Auth -->
+  <div class="config-panel" id="auth-panel">
+    <div class="config-row" style="margin-bottom:0">
+      <div class="c-group">
+        <label>Usuario de GitHub</label>
+        <input type="text" class="c-input" id="gh-user" placeholder="ej: NikoAlerce" spellcheck="false" />
+      </div>
+      <div class="c-group">
+        <label>GitHub Token (Classic)</label>
+        <input type="password" class="c-input" id="gh-token" placeholder="ghp_XXX..." spellcheck="false" />
       </div>
     </div>
+  </div>
 
+  <!-- SECTION 1: PUBLISH EXPERIENCE -->
+  <div id="section-publish">
     <div class="drop-zone" id="drop-zip" onclick="document.getElementById('zip-input').click()">
       <svg viewBox="0 0 48 48" fill="none">
         <path d="M12 40H36C37.1 40 38 39.1 38 38V18L28 8H12C10.9 8 10 8.9 10 10V38C10 39.1 10.9 40 12 40Z" stroke="currentColor" stroke-width="1.5"/>
         <path d="M28 8V18H38" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M20 26L24 30L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M24 18V30" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
-      <h2>Tirá tu ZIP de 8th Wall acá</h2>
-      <p>100% procesado en tu navegador. Ignora el límite de 4MB.</p>
+      <h2>Tirá tu ZIP de 8th Wall Desktop acá</h2>
+      <p>Procesado en tu navegador. Publica instantáneamente a GitHub Pages.</p>
       <input type="file" id="zip-input" accept=".zip" style="display:none"/>
     </div>
-
     <div class="file-bar hidden" id="zip-bar">
-      <span>📦</span>
-      <span class="name" id="zip-name"></span>
-      <button class="clear" onclick="clearZip()">✕</button>
+      <span>📦</span><span class="name" id="zip-name"></span><button class="clear" onclick="clearZip()">✕</button>
     </div>
-
     <div class="repo-row">
       <span class="repo-label">Nombre del repo:</span>
       <input class="repo-input" id="repo-name" spellcheck="false"/>
     </div>
-
-    <button class="pub-btn" id="pub-btn" onclick="publish()" disabled>Publicar en GitHub</button>
+    <button class="pub-btn" id="pub-btn" onclick="publishZip()" disabled>Publicar a Internet</button>
   </div>
 
-  <!-- SECTION: GENERATE IMAGE TARGET -->
+  <!-- SECTION 2: GENERATE TARGET -->
   <div id="section-target" class="hidden">
-    <div class="config-panel" style="margin-bottom:12px">
-      <p style="font-size:13px; color:var(--dim); line-height:1.5;">
-        Generá automáticamente un <b>Image Target Plano</b> (Flat) nativo de 8th Wall directo de imagen a `.zip`. 
-        Se recortará al estándar ratio 4:3 o 3:4.
-      </p>
-    </div>
-
+    <div class="details">Generá un <b>Image Target Plano</b> nativo para añadir a tus recursos de tu Desktop Studio. Termina en una descarga `.zip`.</div>
     <div class="drop-zone" id="drop-img" onclick="document.getElementById('img-input').click()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
       </svg>
-      <h2>Tirá tu Foto o Imagen (.jpg / .png)</h2>
-      <p>Soporta resoluciones altas.</p>
-      <input type="file" id="img-input" accept="image/jpeg, image/png, image/webp" style="display:none"/>
+      <h2>Tirá tu Imagen (.jpg / .png)</h2>
     </div>
-
-    <div class="img-preview-box hidden" id="img-preview-box">
-      <img id="img-preview-el" src="" />
-      <button class="clear" onclick="clearImg()">Quitar Imagen</button>
+    <div class="file-bar hidden" id="img-bar">
+      <span>🖼️</span><span class="name" id="img-name"></span><button class="clear" onclick="clearImg()">✕</button>
     </div>
-
+    <input type="file" id="img-input" accept="image/jpeg, image/png, image/webp" style="display:none"/>
+    
     <div class="repo-row">
       <span class="repo-label">Nombre del target:</span>
       <input class="repo-input" id="target-name" spellcheck="false" placeholder="ej: poster_cine"/>
     </div>
+    <button class="pub-btn btn-green" id="gen-btn" onclick="generateTarget()" disabled>Generar y Descargar JSON</button>
+  </div>
 
-    <button class="pub-btn btn-green" id="gen-btn" onclick="generateTarget()" disabled>Generar y Descargar ZIP</button>
+  <!-- SECTION 3: AUTOMATIC CREATOR (NO-CODE) -->
+  <div id="section-nocode" class="hidden">
+    <div class="details">Ensambla tu proyecto WebAR completo, fusionando tu <b>Imagen Objetivo</b> con tu <b>Modelo GLB</b> y publicándolo online con 1 click. Zero código requerido.</div>
+    
+    <div class="dz-dual">
+      <!-- Target Drop -->
+      <div class="drop-zone" id="drop-nc-img" onclick="document.getElementById('nc-img-input').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        <h2 style="font-size:14px">Drop Imagen Target</h2>
+      </div>
+      <!-- GLB Drop -->
+      <div class="drop-zone" id="drop-nc-glb" onclick="document.getElementById('nc-glb-input').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <h2 style="font-size:14px">Drop Modelo .GLB</h2>
+      </div>
+    </div>
+    <input type="file" id="nc-img-input" accept="image/jpeg, image/png, image/webp" style="display:none"/>
+    <input type="file" id="nc-glb-input" accept=".glb" style="display:none"/>
+    
+    <div class="file-bar hidden" id="nc-files-bar" style="justify-content:space-between">
+      <span style="font-size:12px; color:var(--green)">✓ Target Cargado</span>
+      <span style="font-size:12px; color:var(--green)">✓ GLB Cargado</span>
+      <button class="clear" onclick="clearNoCode()">✕ Resetear</button>
+    </div>
+
+    <div class="repo-row">
+      <span class="repo-label">Nombre del repo internet:</span>
+      <input class="repo-input" id="nc-repo-name" spellcheck="false" placeholder="mis-zapatillas-ar"/>
+    </div>
+    <button class="pub-btn btn-orange" id="nc-btn" onclick="publishNoCode()" disabled>🚀 Crear Proyecto Mágico</button>
   </div>
 
   <div class="error-bar hidden" id="error"></div>
-
   <div class="result hidden" id="result">
-    <h3>✓ Publicado con Éxito</h3>
+    <h3>✓ ¡Experiencia Online!</h3>
     <div class="qr-wrap"><img id="r-qr" alt="QR"/></div>
     <a class="link" id="r-url" href="#" target="_blank"></a>
-  </div>
-  
-  <div class="result hidden" id="result-target">
-    <h3>✓ Image Target Generado</h3>
-    <p style="font-size:14px; color:var(--dim)">Descomprimí el ZIP descargado dentro de la carpeta <br><code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px;">image-targets/</code> de tu proyecto local.</p>
   </div>
 </div>
 
 <div class="loading hidden" id="loading">
-  <div class="spinner"></div>
-  <p id="load-title">Cargando...</p>
-  <p class="sub" id="load-sub"></p>
+  <div class="spinner"></div><p id="load-title">Cargando...</p><p class="sub" id="load-sub"></p>
 </div>
 
 <script>
 // UI & Tabs
 function switchTab(tabId) {
-  document.getElementById('tab-btn-publish').classList.remove('active')
-  document.getElementById('tab-btn-target').classList.remove('active')
+  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'))
+  document.getElementById(`tab-btn-${tabId}`).classList.add('active')
+  
   document.getElementById('section-publish').classList.add('hidden')
   document.getElementById('section-target').classList.add('hidden')
+  document.getElementById('section-nocode').classList.add('hidden')
+  document.getElementById(`section-${tabId}`).classList.remove('hidden')
+  
   document.getElementById('result').classList.add('hidden')
-  document.getElementById('result-target').classList.add('hidden')
   hideError()
   
-  document.getElementById(`tab-btn-${tabId}`).classList.add('active')
-  document.getElementById(`section-${tabId}`).classList.remove('hidden')
+  // Auth panel shows on Publish and Nocode, hides on local Target Gen
+  document.getElementById('auth-panel').classList.toggle('hidden', tabId === 'target')
 }
 
 // Credentials
@@ -264,102 +255,86 @@ function showError(msg) { const e = document.getElementById('error'); e.textCont
 function hideError() { document.getElementById('error').classList.add('hidden') }
 function setStatus(title, sub) { document.getElementById('load-title').innerText = title; document.getElementById('load-sub').innerText = sub; }
 
-// ==========================================
-// =          PUBLISH EXPERIENCE            =
-// ==========================================
-let zipFile = null
-const dropZip = document.getElementById('drop-zip')
-
-dropZip.addEventListener('dragover', e => { e.preventDefault(); dropZip.classList.add('over') })
-dropZip.addEventListener('dragleave', () => dropZip.classList.remove('over'))
-dropZip.addEventListener('drop', e => { e.preventDefault(); dropZip.classList.remove('over'); if (e.dataTransfer.files[0]) setZipFile(e.dataTransfer.files[0]) })
-document.getElementById('zip-input').addEventListener('change', e => { if (e.target.files[0]) setZipFile(e.target.files[0]) })
-
-function setZipFile(f) {
-  if (!f.name.endsWith('.zip')) { showError('Solo archivos .zip para publicar'); return }
-  zipFile = f
-  document.getElementById('zip-name').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + ' MB)'
-  document.getElementById('zip-bar').classList.remove('hidden')
-  dropZip.classList.add('hidden')
-  document.getElementById('pub-btn').disabled = false
-  hideError()
-  document.getElementById('repo-name').value = f.name.replace(/\.zip$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
-}
-
-function clearZip() {
-  zipFile = null; document.getElementById('zip-input').value = ''
-  document.getElementById('zip-bar').classList.add('hidden')
-  dropZip.classList.remove('hidden'); document.getElementById('pub-btn').disabled = true
-}
-
+// Utils
 async function ghCall(url, token, method='GET', body=null) {
-  const params = {
-    method,
-    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
-  }
+  const params = { method, headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }}
   if (body) { params.headers['Content-Type'] = 'application/json'; params.body = JSON.stringify(body) }
-  
   const res = await fetch(`https://api.github.com${url}`, params)
-  if (!res.ok) {
-    const errObj = await res.json().catch(e => ({}))
-    throw new Error(errObj.message || `Error ${res.status}: ${res.statusText}`)
-  }
+  if (!res.ok) throw new Error((await res.json().catch(e=>({}))).message || `Error ${res.status}: ${res.statusText}`)
   return res.json()
 }
-
 function bufferToBase64(buffer) {
   let binary = ''; const bytes = new Uint8Array(buffer); const chunk = 50000;
   for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   return btoa(binary)
 }
+async function canvasToBuffer(canvas) {
+  return new Promise(r => canvas.toBlob(blob => {
+    const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsArrayBuffer(blob)
+  }, 'image/jpeg', 0.9))
+}
+function getDefaultCrop(width, height) {
+    if (width / 3 > height / 4) {
+      const w = Math.round((height * 3) / 4)
+      return { left: Math.round((width - w) / 2), top: 0, width: w, height, isRotated:false, originalWidth: width, originalHeight: height }
+    } else {
+      const h = Math.round((width * 4) / 3)
+      return { left: 0, top: Math.round((height - h) / 2), width, height: h, isRotated:false, originalWidth: width, originalHeight: height }
+    }
+}
+async function generateTargetDataFromBlob(blob, targetName) {
+  const img = new Image(); img.src = URL.createObjectURL(blob);
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej })
+  const crop = getDefaultCrop(img.width, img.height)
+  
+  const cvsCrop = document.createElement('canvas'); cvsCrop.width = crop.width; cvsCrop.height = crop.height;
+  cvsCrop.getContext('2d').drawImage(img, crop.left, crop.top, crop.width, crop.height, 0, 0, crop.width, crop.height)
+  
+  const cvsThumb = document.createElement('canvas'); const tH = 350; const tW = Math.round(crop.width * (350 / crop.height));
+  cvsThumb.width = tW; cvsThumb.height = tH; cvsThumb.getContext('2d').drawImage(cvsCrop, 0, 0, tW, tH)
 
-async function publish() {
-  const user = document.getElementById('gh-user').value.trim()
-  const token = document.getElementById('gh-token').value.trim()
-  const repoName = document.getElementById('repo-name').value.trim()
+  const cvsLum = document.createElement('canvas'); const lH = 640; const lW = Math.round(crop.width * (640 / crop.height));
+  cvsLum.width = lW; cvsLum.height = lH; const ctxLum = cvsLum.getContext('2d')
+  ctxLum.drawImage(cvsCrop, 0, 0, lW, lH); const d = ctxLum.getImageData(0, 0, lW, lH), px = d.data;
+  for (let i = 0; i < px.length; i += 4) { const l = px[i]*0.299 + px[i+1]*0.587 + px[i+2]*0.114; px[i]=px[i+1]=px[i+2]=l; }
+  ctxLum.putImageData(d, 0, 0)
 
-  if (!user || !token) return showError('Agregá tu Usuario y Token (Pestaña "Publicar").')
-  if (!zipFile) return
+  const resources = { originalImage: `${targetName}_original.jpg`, croppedImage: `${targetName}_cropped.jpg`, thumbnailImage: `${targetName}_thumbnail.jpg`, luminanceImage: `${targetName}_luminance.jpg` }
+  const metadata = { imagePath: `image-targets/${resources.luminanceImage}`, metadata: null, name: targetName, type: "PLANAR", properties: crop, resources, created: Date.now(), updated: Date.now() }
+  
+  return {
+    metadata,
+    buffers: {
+      original: await blob.arrayBuffer(),
+      cropped: await canvasToBuffer(cvsCrop),
+      thumbnail: await canvasToBuffer(cvsThumb),
+      luminance: await canvasToBuffer(cvsLum)
+    }
+  }
+}
 
-  hideError()
-  document.getElementById('result').classList.add('hidden')
-  document.getElementById('loading').classList.remove('hidden')
+// ==========================================
+// =          SECTION 1: PUBLISH ZIP        =
+// ==========================================
+let zipFile = null
+document.getElementById('zip-input').addEventListener('change', e => { if (e.target.files[0]) {
+  zipFile = e.target.files[0]
+  document.getElementById('zip-name').textContent = zipFile.name
+  document.getElementById('zip-bar').classList.remove('hidden'); document.getElementById('drop-zip').classList.add('hidden')
+  document.getElementById('pub-btn').disabled = false; document.getElementById('repo-name').value = zipFile.name.replace(/\.zip$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
+}})
+function clearZip() { zipFile = null; document.getElementById('zip-bar').classList.add('hidden'); document.getElementById('drop-zip').classList.remove('hidden'); document.getElementById('pub-btn').disabled = true }
 
-  try {
-    setStatus('Descomprimiendo...', 'Abriendo ZIP localmente (JSZip)')
-    const jszip = new JSZip()
-    const zipData = await jszip.loadAsync(zipFile)
-    
-    let rootPath = ''; let htmlFound = false; const filesArray = []
-    zipData.forEach((relPath, zipEntry) => {
-      if (!zipEntry.dir) { filesArray.push(zipEntry); if (relPath.endsWith('index.html')) { htmlFound = true; rootPath = relPath.substring(0, relPath.lastIndexOf('index.html')) } }
-    })
-    const filesToUpload = filesArray.filter(entry => entry.name.startsWith(rootPath))
-    
+async function startDeploy(user, token, repoName, treePayload) {
     setStatus('Preparando GitHub', `Chequeando repositorio: ${repoName}...`)
     try { await ghCall(`/repos/${user}/${repoName}`, token) }
     catch (e) {
-      if (e.message.includes('Not Found')) {
-        await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true })
-        await new Promise(r => setTimeout(r, 4000))
-      } else throw e
+      if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) }
+      else throw e
     }
-
-    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
-    let i = 0
-    for (const file of filesToUpload) {
-      i++
-      const finalPath = file.name.substring(rootPath.length)
-      setStatus(`Subiendo API (${i}/${filesToUpload.length})`, finalPath)
-      
-      const buffer = await file.async("arraybuffer")
-      const blobRes = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(buffer), encoding: 'base64' })
-      treePayload.push({ path: finalPath, mode: '100644', type: 'blob', sha: blobRes.sha })
-    }
-
-    setStatus('Desplegando...', 'Creando commit en la rama main')
+    setStatus('Subiendo Archivos...', 'Generando metadata y agrupando archivos a Github')
     const treeRes = await ghCall(`/repos/${user}/${repoName}/git/trees`, token, 'POST', { tree: treePayload })
-    const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', { message: 'Deploy AR via AR Publisher', tree: treeRes.sha })
+    const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', { message: 'Deploy AR vía AR Publisher', tree: treeRes.sha })
 
     let currentBranch = 'main'
     try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/main`, token, 'PATCH', { sha: commitRes.sha, force: true }) }
@@ -372,169 +347,147 @@ async function publish() {
       }
     }
 
-    setStatus('Activando Pages', 'Solicitando servicio a Vercel/GitHub Pages...')
+    setStatus('Activando Pages', 'Solicitando servicio a online...')
     let pagesOk = false
-    for(let att=0; att<3; att++){
-      await new Promise(r => setTimeout(r, 3000))
-      try {
-        await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, {
-          method:'POST', headers:{ Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json' },
-          body: JSON.stringify({source:{branch:currentBranch, path:'/'}})
-        })
-        pagesOk = true; break
-      } catch(e){}
-    }
+    for(let att=0; att<3; att++){ await new Promise(r => setTimeout(r, 4000)); try {
+      await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, { method:'POST', headers:{ Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json' }, body: JSON.stringify({source:{branch:currentBranch, path:'/'}}) }); pagesOk = true; break
+    } catch(e){} }
 
     const pagesUrl = `https://${user}.github.io/${repoName}/`
     document.getElementById('r-url').href = pagesUrl; document.getElementById('r-url').innerText = pagesUrl
     document.getElementById('r-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(pagesUrl)}`
-    
     document.getElementById('loading').classList.add('hidden')
     document.getElementById('result').classList.remove('hidden')
     document.getElementById('result').scrollIntoView({behavior: 'smooth'})
-
-  } catch (err) {
-    document.getElementById('loading').classList.add('hidden'); showError(err.message)
-  }
 }
 
-// ==========================================
-// =          IMAGE TARGET GEN              =
-// ==========================================
-let imgBlob = null
-const dropImg = document.getElementById('drop-img')
-
-dropImg.addEventListener('dragover', e => { e.preventDefault(); dropImg.classList.add('over') })
-dropImg.addEventListener('dragleave', () => dropImg.classList.remove('over'))
-dropImg.addEventListener('drop', e => { e.preventDefault(); dropImg.classList.remove('over'); if (e.dataTransfer.files[0]) setImgFile(e.dataTransfer.files[0]) })
-document.getElementById('img-input').addEventListener('change', e => { if (e.target.files[0]) setImgFile(e.target.files[0]) })
-
-function setImgFile(f) {
-  if (!f.type.startsWith('image/')) { showError('Solo formatos de imagen (jpg/png)'); return }
-  imgBlob = f
-  const url = URL.createObjectURL(f)
-  document.getElementById('img-preview-el').src = url
-  document.getElementById('img-preview-box').classList.remove('hidden')
-  dropImg.classList.add('hidden')
-  document.getElementById('gen-btn').disabled = false
-  hideError()
-  let baseName = f.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_]/g, '_')
-  document.getElementById('target-name').value = baseName
-}
-
-function clearImg() {
-  imgBlob = null; document.getElementById('img-input').value = ''
-  document.getElementById('img-preview-box').classList.add('hidden')
-  dropImg.classList.remove('hidden'); document.getElementById('gen-btn').disabled = true
-}
-
-function getDefaultCrop(width, height) {
-    const isRotated = false; 
-    if (width / 3 > height / 4) {
-      const croppedWidth = Math.round((height * 3) / 4)
-      return { left: Math.round((width - croppedWidth) / 2), top: 0, width: croppedWidth, height, isRotated, originalWidth: width, originalHeight: height }
-    } else {
-      const croppedHeight = Math.round((width * 4) / 3)
-      return { left: 0, top: Math.round((height - croppedHeight) / 2), width, height: croppedHeight, isRotated, originalWidth: width, originalHeight: height }
-    }
-}
-
-async function canvasToBlobAsync(canvas, format='image/jpeg', quality=0.9) {
-  return new Promise(r => canvas.toBlob(r, format, quality))
-}
-
-async function generateTarget() {
-  let targetName = document.getElementById('target-name').value.trim()
-  if (!targetName) targetName = "image_target"
-  if (!imgBlob) return
-
-  hideError()
-  setStatus('Procesando imagen...', 'Calculando ratios y aplicando escala de grises')
-  document.getElementById('loading').classList.remove('hidden')
+async function publishZip() {
+  const user = document.getElementById('gh-user').value.trim(), token = document.getElementById('gh-token').value.trim(), repoName = document.getElementById('repo-name').value.trim()
+  if (!user || !token) return showError('Agregá tu Usuario y Token.')
+  hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
 
   try {
-    // 1. Load Image
-    const img = new Image()
-    img.src = URL.createObjectURL(imgBlob)
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej })
-
-    // 2. Calculate Default Crop (4:3 or 3:4)
-    const crop = getDefaultCrop(img.width, img.height)
-
-    // 3. Render Original Cropped
-    const cvsCrop = document.createElement('canvas')
-    cvsCrop.width = crop.width; cvsCrop.height = crop.height
-    const ctxCrop = cvsCrop.getContext('2d')
-    ctxCrop.drawImage(img, crop.left, crop.top, crop.width, crop.height, 0, 0, crop.width, crop.height)
+    setStatus('Descomprimiendo...', 'Abriendo ZIP localmente (JSZip)')
+    const zipData = await (new JSZip()).loadAsync(zipFile); let rootPath = ''; const filesArray = []
+    zipData.forEach((relPath, zipEntry) => { if (!zipEntry.dir) { filesArray.push(zipEntry); if (relPath.endsWith('index.html')) rootPath = relPath.substring(0, relPath.lastIndexOf('index.html')) } })
+    const filesToUpload = filesArray.filter(entry => entry.name.startsWith(rootPath))
     
-    // 4. Render Thumbnail (350h)
-    const cvsThumb = document.createElement('canvas')
-    const thumbH = 350; const thumbW = Math.round(crop.width * (350 / crop.height))
-    cvsThumb.width = thumbW; cvsThumb.height = thumbH
-    cvsThumb.getContext('2d').drawImage(cvsCrop, 0, 0, thumbW, thumbH)
+    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
+    let i = 0
+    for (const file of filesToUpload) {
+      i++; setStatus(`Codificando (${i}/${filesToUpload.length})`, file.name.substring(rootPath.length))
+      const blobRes = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(await file.async("arraybuffer")), encoding: 'base64' })
+      treePayload.push({ path: file.name.substring(rootPath.length), mode: '100644', type: 'blob', sha: blobRes.sha })
+    }
+    await startDeploy(user, token, repoName, treePayload)
+  } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
+}
 
-    // 5. Render Luminance (640h) & Grayscale
-    const cvsLum = document.createElement('canvas')
-    const lumH = 640; const lumW = Math.round(crop.width * (640 / crop.height))
-    cvsLum.width = lumW; cvsLum.height = lumH
-    const ctxLum = cvsLum.getContext('2d')
-    ctxLum.drawImage(cvsCrop, 0, 0, lumW, lumH)
+// ==========================================
+// =          SECTION 2: TARGET GEN         =
+// ==========================================
+let imgBlob = null
+document.getElementById('img-input').addEventListener('change', e => { if (e.target.files[0]) {
+  imgBlob = e.target.files[0]; document.getElementById('img-bar').classList.remove('hidden'); document.getElementById('img-name').textContent = imgBlob.name
+  document.getElementById('drop-img').classList.add('hidden'); document.getElementById('gen-btn').disabled = false; document.getElementById('target-name').value = imgBlob.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_]/g, '_')
+}})
+function clearImg() { imgBlob = null; document.getElementById('img-bar').classList.add('hidden'); document.getElementById('drop-img').classList.remove('hidden'); document.getElementById('gen-btn').disabled = true }
+
+async function generateTarget() {
+  let targetName = document.getElementById('target-name').value.trim() || "image_target"
+  hideError(); setStatus('Procesando...', 'Convirtiendo targets HTML5 en memoria'); document.getElementById('loading').classList.remove('hidden')
+  try {
+    const data = await generateTargetDataFromBlob(imgBlob, targetName)
+    const zip = new JSZip(), folder = zip.folder(targetName)
+    folder.file(`${targetName}.json`, JSON.stringify(data.metadata, null, 2))
+    folder.file(data.metadata.resources.originalImage, data.buffers.original)
+    folder.file(data.metadata.resources.croppedImage, data.buffers.cropped)
+    folder.file(data.metadata.resources.thumbnailImage, data.buffers.thumbnail)
+    folder.file(data.metadata.resources.luminanceImage, data.buffers.luminance)
+    const dlLink = document.createElement('a'); dlLink.href = URL.createObjectURL(await zip.generateAsync({type:"blob"})); dlLink.download = `${targetName}-target.zip`
+    document.body.appendChild(dlLink); dlLink.click(); document.body.removeChild(dlLink); document.getElementById('loading').classList.add('hidden')
+  } catch (err) { document.getElementById('loading').classList.add('hidden'); showError("Error generando Image Target: " + err.message) }
+}
+
+// ==========================================
+// =          SECTION 3: NO CODE            =
+// ==========================================
+let ncImgBlob = null; let ncGlbBlob = null;
+document.getElementById('nc-img-input').addEventListener('change', e => { if (e.target.files[0]) { ncImgBlob = e.target.files[0]; document.getElementById('drop-nc-img').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
+document.getElementById('nc-glb-input').addEventListener('change', e => { if (e.target.files[0]) { ncGlbBlob = e.target.files[0]; document.getElementById('drop-nc-glb').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
+function updateNoCodeBtn() {
+  if (ncImgBlob && ncGlbBlob) { document.getElementById('nc-files-bar').classList.remove('hidden'); document.getElementById('nc-btn').disabled = false; if(!document.getElementById('nc-repo-name').value) document.getElementById('nc-repo-name').value = 'mi-proyecto-ar'; }
+}
+function clearNoCode() {
+  ncImgBlob = null; ncGlbBlob = null; document.getElementById('nc-files-bar').classList.add('hidden'); document.getElementById('nc-btn').disabled = true
+  document.getElementById('drop-nc-img').style.borderColor = ''; document.getElementById('drop-nc-glb').style.borderColor = '';
+}
+
+async function publishNoCode() {
+  const user = document.getElementById('gh-user').value.trim(), token = document.getElementById('gh-token').value.trim(), repoName = document.getElementById('nc-repo-name').value.trim()
+  if (!user || !token) return showError('Agregá tu Usuario y Token.')
+  hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
+  
+  try {
+    setStatus('Generando Mágia', 'Procesando Image Target y Escena WebAR...')
+    // 1. Process target
+    const targetName = 'm_target'
+    const data = await generateTargetDataFromBlob(ncImgBlob, targetName)
     
-    // Grayscale Algorithm
-    const imgData = ctxLum.getImageData(0, 0, lumW, lumH)
-    const data = imgData.data
-    for (let i = 0; i < data.length; i += 4) {
-      const luma = data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114
-      data[i] = data[i+1] = data[i+2] = luma
+    // 2. Build HTML Template (Direct Injection of Meta)
+    const htmlTemplate = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+  <title>AR Experience</title>
+  <style>body{margin:0;padding:0;overflow:hidden;background:#000}</style>
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"></`+`script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></`+`script>
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@latest/dist/xrextras.js"></`+`script>
+  <script>
+    const targetMeta = ${JSON.stringify(data.metadata)};
+    const onxrloaded = () => { XR8.XrController.configure({ imageTargetData: [targetMeta] }) }
+    window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded)
+  </`+`script>
+</head>
+<body>
+  <a-scene xrweb="disableWorldTracking: true" xrextras-loading xrextras-runtime-error renderer="colorManagement: true" vr-mode-ui="enabled: false">
+    <a-assets><a-asset-item id="model" src="model.glb"></a-asset-item></a-assets>
+    <a-camera position="0 4 10" raycaster="objects: .cantap"></a-camera>
+    <a-light type="directional" intensity="0.8" position="1 1 1"></a-light><a-light type="ambient" intensity="1.2"></a-light>
+    
+    <a-entity xrextras-named-image-target="name: ${targetName}">
+      <a-entity gltf-model="#model" scale="1 1 1" position="0 0 0" rotation="0 0 0"></a-entity>
+    </a-entity>
+  </a-scene>
+</body>
+</html>`
+
+    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
+    
+    // 3. Upload HTML directly
+    const htmlSha = (await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: btoa(unescape(encodeURIComponent(htmlTemplate))), encoding: 'base64' })).sha
+    treePayload.push({ path: 'index.html', mode: '100644', type: 'blob', sha: htmlSha })
+
+    setStatus('Subiendo Modelo', 'Enviando .GLB y Target en formato BLOB a la base de datos de GitHub')
+
+    // 4. Upload GLB model
+    const glbBuffer = await new Promise(r => { const reader = new FileReader(); reader.onload = ()=>r(reader.result); reader.readAsArrayBuffer(ncGlbBlob) })
+    const glbSha = (await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(glbBuffer), encoding: 'base64' })).sha
+    treePayload.push({ path: 'model.glb', mode: '100644', type: 'blob', sha: glbSha })
+
+    // 5. Upload Target Images
+    const uploadBlob = async (pathStr, buffer) => {
+      const sha = (await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(buffer), encoding: 'base64' })).sha
+      treePayload.push({ path: pathStr, mode: '100644', type: 'blob', sha })
     }
-    ctxLum.putImageData(imgData, 0, 0)
+    await uploadBlob(`image-targets/${data.metadata.resources.originalImage}`, data.buffers.original)
+    // await uploadBlob(`image-targets/${data.metadata.resources.croppedImage}`, data.buffers.cropped) // Only required for Studio, not engine
+    // await uploadBlob(`image-targets/${data.metadata.resources.thumbnailImage}`, data.buffers.thumbnail) // Only required for Studio
+    await uploadBlob(`image-targets/${data.metadata.resources.luminanceImage}`, data.buffers.luminance) // Essential for Engine tracking!
 
-    setStatus('Empaquetando ZIP...', 'Generando metadata y agrupando archivos')
-
-    // 6. JSON Metadata
-    const extension = 'jpg'
-    const resources = {
-      originalImage: `${targetName}_original.${extension}`,
-      croppedImage: `${targetName}_cropped.${extension}`,
-      thumbnailImage: `${targetName}_thumbnail.${extension}`,
-      luminanceImage: `${targetName}_luminance.${extension}`,
-    }
-    const metadata = {
-      imagePath: `image-targets/${resources.luminanceImage}`,
-      metadata: null,
-      name: targetName,
-      type: "PLANAR",
-      properties: crop,
-      resources,
-      created: Date.now(),
-      updated: Date.now()
-    }
-
-    // 7. JSZip Packing
-    const zip = new JSZip()
-    const folder = zip.folder(targetName)
-    folder.file(`${targetName}.json`, JSON.stringify(metadata, null, 2))
-    folder.file(resources.originalImage, await imgBlob.arrayBuffer()) 
-    folder.file(resources.croppedImage, await canvasToBlobAsync(cvsCrop)) 
-    folder.file(resources.thumbnailImage, await canvasToBlobAsync(cvsThumb)) 
-    folder.file(resources.luminanceImage, await canvasToBlobAsync(cvsLum)) 
-
-    // 8. Download
-    const zipBlob = await zip.generateAsync({type:"blob"})
-    const dlLink = document.createElement('a')
-    dlLink.href = URL.createObjectURL(zipBlob)
-    dlLink.download = `${targetName}-target.zip`
-    document.body.appendChild(dlLink)
-    dlLink.click()
-    document.body.removeChild(dlLink)
-
-    document.getElementById('loading').classList.add('hidden')
-    document.getElementById('result-target').classList.remove('hidden')
-    document.getElementById('result-target').scrollIntoView({behavior: 'smooth'})
-
-  } catch (err) {
-    document.getElementById('loading').classList.add('hidden'); showError("Error generando Image Target: " + err.message)
-  }
+    await startDeploy(user, token, repoName, treePayload)
+  } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
 }
 </script>
 </body>
