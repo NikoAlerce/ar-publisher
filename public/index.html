@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AR Publisher & Super Auto-Creator</title>
+  <title>AR Publisher & 3D Visual Creator</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <!-- Three.js Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
   <style>
     :root {
       --bg: #08090d; --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
@@ -17,87 +24,77 @@
       background: var(--bg); color: var(--text);
       font-family: 'Inter', system-ui, sans-serif;
       min-height: 100vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; padding: 32px;
+      align-items: center; justify-content: center; padding: 24px;
     }
-    body::before {
-      content:''; position:fixed; top:-30%; left:10%; width:50%; height:50%;
-      background: radial-gradient(ellipse, rgba(99,102,241,0.08), transparent 70%);
-      pointer-events:none;
-    }
-    .container { width: 100%; max-width: 600px; position: relative; z-index: 1; }
+    body::before { content:''; position:fixed; top:-30%; left:10%; width:50%; height:50%; background: radial-gradient(ellipse, rgba(99,102,241,0.08), transparent 70%); pointer-events:none; }
+    .container { width: 100%; max-width: 680px; position: relative; z-index: 1; }
 
     /* ── Header ── */
-    .logo { text-align: center; margin-bottom: 24px; }
-    .logo h1 {
-      font-size: 26px; font-weight: 700;
-      background: linear-gradient(135deg, #f1f5f9, #94a3b8);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    .logo { text-align: center; margin-bottom: 20px; }
+    .logo h1 { font-size: 26px; font-weight: 700; background: linear-gradient(135deg, #f1f5f9, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .logo p { color: var(--dim); font-size: 13px; margin-top: 4px; }
 
     /* ── Tabs ── */
-    .tabs { display: flex; background: rgba(255,255,255,0.02); border-radius: 12px; padding: 6px; margin-bottom: 24px; border: 1px solid var(--border); }
-    .tab { flex: 1; text-align: center; padding: 10px; font-size: 13px; font-weight: 500; color: var(--dim); cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+    .tabs { display: flex; background: rgba(255,255,255,0.02); border-radius: 12px; padding: 6px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .tab { flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 500; color: var(--dim); cursor: pointer; border-radius: 8px; transition: all 0.2s; }
     .tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
     .tab.active { color: white; background: rgba(99,102,241,0.15); box-shadow: inset 0 0 0 1px rgba(99,102,241,0.3); }
 
     /* ── Config Panel ── */
-    .config-panel {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 20px; margin-bottom: 24px;
-    }
-    .config-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .config-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 16px; }
+    .config-row { display: flex; gap: 12px; }
     .c-group { flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
-    .c-group label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
-    .c-input {
-      padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%;
-    }
+    .c-group label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+    .c-input { padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%; transition: border-color 0.2s; }
     .c-input:focus { outline: none; border-color: var(--accent); }
 
     /* ── Drop zone ── */
-    .drop-zone {
-      border: 2px dashed rgba(99,102,241,0.35); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(99,102,241,0.03); min-height: 140px; margin-bottom: 16px;
-    }
+    .drop-zone { border: 2px dashed rgba(99,102,241,0.35); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(99,102,241,0.03); min-height: 120px; margin-bottom: 12px; }
     .drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: rgba(99,102,241,0.08); transform: scale(1.01); }
-    .drop-zone svg { width: 44px; height: 44px; color: var(--accent2); opacity: 0.5; margin-bottom: 12px; }
-    .drop-zone h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-    .drop-zone p { color: var(--dim); font-size: 12px; }
+    .drop-zone svg { width: 36px; height: 36px; color: var(--accent2); opacity: 0.5; margin-bottom: 8px; }
+    .drop-zone h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .drop-zone p { color: var(--dim); font-size: 11px; }
     .dz-dual { display: flex; gap: 12px; }
-    .dz-dual .drop-zone { flex: 1; margin-bottom: 0; padding: 20px 10px; }
+    .dz-dual .drop-zone { flex: 1; margin-bottom: 0; padding: 16px 10px; }
     
     .repo-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; justify-content: center; }
     .repo-label { font-size: 12px; color: var(--dim); }
 
-    /* ── File selected ── */
-    .file-bar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 18px; margin-top: 12px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); border-radius: 12px; animation: fadeIn 0.2s; }
-    .file-bar .name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;}
-    .file-bar .clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px; display: flex; align-items: center; height: 100%;}
-    .file-bar .clear:hover { color: var(--red); }
+    .file-bar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 14px; margin-top: 12px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); border-radius: 10px; animation: fadeIn 0.2s; }
+    .file-bar .name { flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;}
+    .file-bar .clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 14px; display: flex; align-items: center; height: 100%;}
     
     /* ── Type Selector ── */
-    .type-switcher { display: flex; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; padding: 4px; gap: 4px;}
-    .ts-btn { flex: 1; text-align: center; font-size: 13px; font-weight: 600; padding: 10px; cursor: pointer; border-radius: 6px; color: var(--dim); transition: all 0.2s;}
+    .type-switcher { display: flex; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; padding: 4px; gap: 4px;}
+    .ts-btn { flex: 1; text-align: center; font-size: 12px; font-weight: 600; padding: 8px; cursor: pointer; border-radius: 6px; color: var(--dim); transition: all 0.2s;}
     .ts-btn.active { background: rgba(245,158,11,0.15); color: var(--orange); box-shadow: inset 0 0 0 1px rgba(245,158,11,0.3); }
 
+    /* ── Visual Studio Preview ── */
+    .preview-container { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 16px; display: none; background: #111; animation: fadeIn 0.3s; }
+    .preview-container.visible { display: block; }
+    .preview-header { padding: 8px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .preview-title { font-size: 12px; font-weight: 600; color: var(--dim); display:flex; align-items:center; gap:6px;}
+    .preview-title span { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 8px var(--green); }
+    .tools { display: flex; gap: 4px; }
+    .tool-btn { background: rgba(255,255,255,0.1); border: none; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.2s;}
+    .tool-btn:hover { background: rgba(255,255,255,0.2); }
+    .tool-btn.active { background: var(--accent); }
+    #preview-canvas { width: 100%; height: 260px; outline: none; }
+
     /* ── Transforms ── */
-    .transform-box { background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 16px; border-radius: 12px; margin-top: 16px; display:none; }
+    .transform-box { background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 12px; border-radius: 12px; margin-top: 12px; display:none; }
     .transform-box.visible { display: block; animation: fadeIn 0.3s; }
-    .t-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .t-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
     .t-row:last-child { margin-bottom: 0; }
     .t-label { width: 60px; font-size: 11px; color: var(--dim); text-transform: uppercase; font-weight: 600; }
-    .t-inputs { display: flex; gap: 8px; flex: 1; }
-    .t-inputs input { flex:1; padding:6px; font-size:12px; font-family:'JetBrains Mono'; text-align:center; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:white; border-radius:6px; }
+    .t-inputs { display: flex; gap: 6px; flex: 1; }
+    .t-inputs input { flex:1; padding:6px; font-size:11px; font-family:'JetBrains Mono'; text-align:center; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:white; border-radius:6px; }
+    .t-inputs input:focus { border-color: var(--accent); outline: none;}
     .t-group { position: relative; flex:1;}
-    .t-group::before { content:attr(data-l); position:absolute; left:6px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--dim); font-family:sans-serif;}
+    .t-group::before { content:attr(data-l); position:absolute; left:6px; top:50%; transform:translateY(-50%); font-size:9px; color:var(--dim); font-family:sans-serif;}
 
     /* ── Pub Btn ── */
-    .pub-btn {
-      display: block; width: 100%; margin-top: 20px; padding: 18px; border: none; border-radius: 14px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 700; font-size: 17px;
-      cursor: pointer; box-shadow: 0 6px 28px rgba(99,102,241,0.4); transition: transform 0.1s;
-    }
+    .pub-btn { display: block; width: 100%; margin-top: 20px; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 6px 28px rgba(99,102,241,0.4); transition: transform 0.1s; }
     .pub-btn:active { transform: scale(0.98); }
     .pub-btn.btn-green { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 6px 28px rgba(16,185,129,0.3); }
     .pub-btn.btn-orange { background: linear-gradient(135deg, #f59e0b, #ea580c); box-shadow: 0 6px 28px rgba(245,158,11,0.3); }
@@ -111,7 +108,7 @@
     .loading .sub { font-size: 12px; color: var(--accent2); margin-top: 6px; font-family: 'JetBrains Mono'; text-align: center; }
 
     .result { margin-top: 28px; padding: 28px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 20px; animation: fadeIn 0.3s; text-align: center; }
-    .result h3 { font-size: 20px; margin-bottom: 20px; }
+    .result h3 { font-size: 20px; margin-bottom: 20px; text-shadow: 0 2px 10px rgba(16,185,129,0.4); }
     .qr-wrap { display: inline-block; background: white; padding: 10px; border-radius: 12px; margin-bottom: 16px; }
     .qr-wrap img { width: 180px; height: 180px; }
     .link { display: block; color: var(--accent2); font-family: 'JetBrains Mono'; font-size: 14px; text-decoration: none; margin-bottom: 6px; }
@@ -131,20 +128,14 @@
 
   <div class="tabs">
     <div class="tab" id="tab-btn-publish" onclick="switchTab('publish')">🚀 Desktop ZIP</div>
-    <div class="tab" id="tab-btn-target" onclick="switchTab('target')">🎯 Crear Target</div>
-    <div class="tab active" id="tab-btn-nocode" onclick="switchTab('nocode')">⚡ Auto-Creator (No Code)</div>
+    <div class="tab" id="tab-btn-target" onclick="switchTab('target')">🎯 D/L Target</div>
+    <div class="tab active" id="tab-btn-nocode" onclick="switchTab('nocode')">⚡ Auto-Creator (Visual)</div>
   </div>
 
   <div class="config-panel" id="auth-panel">
     <div class="config-row" style="margin-bottom:0">
-      <div class="c-group">
-        <label>Usuario de GitHub</label>
-        <input type="text" class="c-input" id="gh-user" placeholder="ej: NikoAlerce" spellcheck="false" />
-      </div>
-      <div class="c-group">
-        <label>GitHub Token (Classic)</label>
-        <input type="password" class="c-input" id="gh-token" placeholder="ghp_XXX..." spellcheck="false" />
-      </div>
+      <div class="c-group"><label>Usuario de GitHub</label><input type="text" class="c-input" id="gh-user" spellcheck="false" /></div>
+      <div class="c-group"><label>GitHub Token</label><input type="password" class="c-input" id="gh-token" spellcheck="false" /></div>
     </div>
   </div>
 
@@ -153,7 +144,6 @@
     <div class="drop-zone" id="drop-zip" onclick="document.getElementById('zip-input').click()">
       <svg viewBox="0 0 48 48" fill="none"><path d="M12 40H36C37.1 40 38 39.1 38 38V18L28 8H12C10.9 8 10 8.9 10 10V38C10 39.1 10.9 40 12 40Z" stroke="currentColor" stroke-width="1.5"/><path d="M28 8V18H38" stroke="currentColor" stroke-width="1.5"/></svg>
       <h2>Tirá tu ZIP de 8th Wall Desktop acá</h2>
-      <p>Ignora límites de tamaño.</p>
       <input type="file" id="zip-input" accept=".zip" style="display:none"/>
     </div>
     <div class="file-bar hidden" id="zip-bar"><span>📦</span><span class="name" id="zip-name"></span><button class="clear" onclick="clearZip()">✕</button></div>
@@ -165,7 +155,7 @@
   <div id="section-target" class="hidden">
     <div class="drop-zone" id="drop-img" onclick="document.getElementById('img-input').click()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-      <h2>Tirá tu Imagen (.jpg/.png)</h2>
+      <h2>Tirá tu Foto (.jpg/.png)</h2>
     </div>
     <div class="file-bar hidden" id="img-bar"><span>🖼️</span><span class="name" id="img-name"></span><button class="clear" onclick="clearImg()">✕</button></div>
     <input type="file" id="img-input" accept="image/jpeg, image/png, image/webp" style="display:none"/>
@@ -173,7 +163,7 @@
     <button class="pub-btn btn-green" id="gen-btn" onclick="generateTarget()" disabled>Generar y Descargar JSON</button>
   </div>
 
-  <!-- SECTION 3: SUPER AUTO CREATOR -->
+  <!-- SECTION 3: VISUAL AUTO CREATOR -->
   <div id="section-nocode">
     <div class="type-switcher">
       <div class="ts-btn active" id="ts-3d" onclick="setNcType('3d')">🦖 3D Model (.glb)</div>
@@ -182,33 +172,43 @@
     
     <div class="dz-dual">
       <div class="drop-zone" id="drop-nc-img" onclick="document.getElementById('nc-img-input').click()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-        <h2 style="font-size:14px" id="lbl-target">Target Imagen</h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+        <h2 style="font-size:13px" id="lbl-target">Target Imagen</h2>
       </div>
       <div class="drop-zone" id="drop-nc-asset" onclick="document.getElementById('nc-asset-input').click()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-        <h2 style="font-size:14px" id="lbl-asset">Modelo .GLB</h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon></svg>
+        <h2 style="font-size:13px" id="lbl-asset">Modelo .GLB</h2>
       </div>
     </div>
     <input type="file" id="nc-img-input" accept="image/jpeg, image/png" style="display:none"/>
     <input type="file" id="nc-asset-input" accept=".glb" style="display:none"/>
-    
-    <div class="file-bar hidden" id="nc-files-bar" style="justify-content:space-between">
-      <span style="font-size:12px; color:var(--green)">✓ Target Cargado</span>
-      <span style="font-size:12px; color:var(--green)" id="lbl-asset-loaded">✓ GLB Cargado</span>
-      <button class="clear" onclick="clearNoCode()">✕ Resetear</button>
+
+    <!-- VISUAL STUDIO -->
+    <div class="preview-container" id="preview-container">
+      <div class="preview-header">
+        <div class="preview-title"><span></span> Live 3D Preview</div>
+        <div class="tools">
+          <button class="tool-btn active" id="tb-t" onclick="setGizmo('translate')">Move</button>
+          <button class="tool-btn" id="tb-r" onclick="setGizmo('rotate')">Rotate</button>
+          <button class="tool-btn" id="tb-s" onclick="setGizmo('scale')">Scale</button>
+        </div>
+      </div>
+      <div id="preview-canvas"></div>
     </div>
 
-    <div class="transform-box visible" id="nc-transform">
+    <!-- TRANSFORM INPUTS -->
+    <div class="transform-box" id="nc-transform">
       <div class="t-row"><div class="t-label">Position</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-px" value="0" step="0.1"></div><div class="t-group" data-l="Y"><input type="number" id="t-py" value="0" step="0.1"></div><div class="t-group" data-l="Z"><input type="number" id="t-pz" value="0" step="0.1"></div></div></div>
-      <div class="t-row"><div class="t-label">Rotation</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-rx" value="0" step="15"></div><div class="t-group" data-l="Y"><input type="number" id="t-ry" value="0" step="15"></div><div class="t-group" data-l="Z"><input type="number" id="t-rz" value="0" step="15"></div></div></div>
+      <div class="t-row"><div class="t-label">Rotation</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-rx" value="0" step="5"></div><div class="t-group" data-l="Y"><input type="number" id="t-ry" value="0" step="5"></div><div class="t-group" data-l="Z"><input type="number" id="t-rz" value="0" step="5"></div></div></div>
       <div class="t-row"><div class="t-label">Scale</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-sx" value="1" step="0.1"></div><div class="t-group" data-l="Y"><input type="number" id="t-sy" value="1" step="0.1"></div><div class="t-group" data-l="Z"><input type="number" id="t-sz" value="1" step="0.1"></div></div></div>
     </div>
 
-    <div class="repo-row">
-      <span class="repo-label">URL del sitio:</span>
-      <input class="c-input" id="nc-repo-name" spellcheck="false" placeholder="mis-zapatillas-ar" style="width:200px"/>
+    <div class="file-bar hidden" id="nc-files-bar" style="justify-content:space-between">
+      <span style="font-size:12px; color:var(--green)">✓ Listo</span>
+      <button class="clear" onclick="clearNoCode()">✕ Resetear Archivos</button>
     </div>
+
+    <div class="repo-row"><span class="repo-label">URL del sitio:</span><input class="c-input" id="nc-repo-name" spellcheck="false" placeholder="mis-zapatillas-ar" style="width:200px"/></div>
     <button class="pub-btn btn-orange" id="nc-btn" onclick="publishNoCode()" disabled>🚀 Crear Proyecto Mágico</button>
   </div>
 
@@ -226,28 +226,22 @@
 // UI
 let ncMode = '3d'
 function setNcType(mode) {
-  ncMode = mode
-  document.getElementById('ts-3d').classList.toggle('active', mode === '3d')
-  document.getElementById('ts-vid').classList.toggle('active', mode === 'vid')
-  document.getElementById('nc-transform').classList.toggle('visible', mode === '3d')
+  ncMode = mode; document.getElementById('ts-3d').classList.toggle('active', mode === '3d'); document.getElementById('ts-vid').classList.toggle('active', mode === 'vid')
+  document.getElementById('nc-transform').classList.toggle('visible', mode === '3d' && ncImgBlob && ncAssetBlob)
+  document.getElementById('preview-container').classList.toggle('visible', mode === '3d' && ncImgBlob && ncAssetBlob)
   
   const lbl = mode === '3d' ? 'Modelo .GLB' : 'Video .MP4'
   document.getElementById('lbl-asset').innerText = lbl
-  document.getElementById('lbl-asset-loaded').innerText = `✓ ${lbl} Cargado`
   document.getElementById('nc-asset-input').accept = mode === '3d' ? '.glb' : 'video/mp4, video/webm, image/gif, image/jpeg, image/png'
   clearNoCode()
 }
 
 function switchTab(tabId) {
-  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'))
-  document.getElementById(`tab-btn-${tabId}`).classList.add('active')
-  
-  document.getElementById('section-publish').classList.add('hidden')
-  document.getElementById('section-target').classList.add('hidden')
-  document.getElementById('section-nocode').classList.add('hidden')
-  document.getElementById(`section-${tabId}`).classList.remove('hidden')
-  document.getElementById('result').classList.add('hidden'); hideError()
-  document.getElementById('auth-panel').classList.toggle('hidden', tabId === 'target')
+  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active')); document.getElementById(`tab-btn-${tabId}`).classList.add('active')
+  const sPublish = document.getElementById('section-publish'), sTarget = document.getElementById('section-target'), sNocode = document.getElementById('section-nocode')
+  sPublish.classList.add('hidden'); sTarget.classList.add('hidden'); sNocode.classList.add('hidden'); document.getElementById(`section-${tabId}`).classList.remove('hidden')
+  document.getElementById('result').classList.add('hidden'); hideError(); document.getElementById('auth-panel').classList.toggle('hidden', tabId === 'target')
+  if(tabId === 'nocode' && activeModel) renderVisualizer();
 }
 
 // Creds
@@ -260,7 +254,7 @@ function showError(msg) { const e = document.getElementById('error'); e.textCont
 function hideError() { document.getElementById('error').classList.add('hidden') }
 function setStatus(title, sub) { document.getElementById('load-title').innerText = title; document.getElementById('load-sub').innerText = sub; }
 
-// Utils
+// API Utils
 async function ghCall(url, token, method='GET', body=null) {
   const params = { method, headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }}
   if (body) { params.headers['Content-Type'] = 'application/json'; params.body = JSON.stringify(body) }
@@ -273,20 +267,13 @@ function bufferToBase64(buffer) {
   for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   return btoa(binary)
 }
-async function canvasToBuffer(canvas) {
-  return new Promise(r => canvas.toBlob(blob => {
-    const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsArrayBuffer(blob)
-  }, 'image/jpeg', 0.9))
-}
+async function canvasToBuffer(canvas) { return new Promise(r => canvas.toBlob(blob => { const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsArrayBuffer(blob) }, 'image/jpeg', 0.9)) }
+
 function getDefaultCrop(width, height) {
-    if (width / 3 > height / 4) {
-      const w = Math.round((height * 3) / 4)
-      return { left: Math.round((width - w) / 2), top: 0, width: w, height, isRotated:false, originalWidth: width, originalHeight: height }
-    } else {
-      const h = Math.round((width * 4) / 3)
-      return { left: 0, top: Math.round((height - h) / 2), width, height: h, isRotated:false, originalWidth: width, originalHeight: height }
-    }
+    if (width / 3 > height / 4) { const w = Math.round((height * 3) / 4); return { left: Math.round((width - w) / 2), top: 0, width: w, height, isRotated:false, originalWidth: width, originalHeight: height } } 
+    else { const h = Math.round((width * 4) / 3); return { left: 0, top: Math.round((height - h) / 2), width, height: h, isRotated:false, originalWidth: width, originalHeight: height } }
 }
+
 async function generateTargetDataFromBlob(blob, targetName) {
   const img = new Image(); img.src = URL.createObjectURL(blob);
   await new Promise((res, rej) => { img.onload = res; img.onerror = rej })
@@ -303,17 +290,104 @@ async function generateTargetDataFromBlob(blob, targetName) {
 
   const resources = { originalImage: `${targetName}_original.jpg`, luminanceImage: `${targetName}_luminance.jpg` }
   const metadata = { imagePath: `image-targets/${resources.luminanceImage}`, metadata: null, name: targetName, type: "PLANAR", properties: crop, resources, created: Date.now(), updated: Date.now() }
-  
   return { metadata, crop, buffers: { original: await blob.arrayBuffer(), luminance: await canvasToBuffer(cvsLum) } }
+}
+
+// ==========================================
+// =          VISUAL STUDIO ENGINE          =
+// ==========================================
+let vsScene, vsCamera, vsRenderer, vsOrbit, vsTransform, activeModel, targetPlanegeo;
+let vsInitialized = false;
+
+function initVisualizer() {
+  if (vsInitialized) return; vsInitialized = true;
+  const container = document.getElementById('preview-canvas');
+  vsScene = new THREE.Scene(); vsScene.background = new THREE.Color(0x1a1a1a)
+  vsCamera = new THREE.PerspectiveCamera(50, container.clientWidth/container.clientHeight, 0.1, 100); vsCamera.position.set(0, 3, 4);
+  vsRenderer = new THREE.WebGLRenderer({antialias: true}); vsRenderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(vsRenderer.domElement);
+  
+  vsScene.add(new THREE.AmbientLight(0xffffff, 0.7)); const dl = new THREE.DirectionalLight(0xffffff, 0.5); dl.position.set(2, 5, 2); vsScene.add(dl);
+  const grid = new THREE.GridHelper(10, 20, 0x444444, 0x222222); vsScene.add(grid);
+  
+  vsOrbit = new THREE.OrbitControls(vsCamera, vsRenderer.domElement); vsOrbit.addEventListener('change', renderVisualizer);
+  
+  vsTransform = new THREE.TransformControls(vsCamera, vsRenderer.domElement);
+  vsTransform.addEventListener('dragging-changed', function (event) { vsOrbit.enabled = !event.value; });
+  vsTransform.addEventListener('change', () => {
+    if(!activeModel) return;
+    document.getElementById('t-px').value = activeModel.position.x.toFixed(3); document.getElementById('t-py').value = activeModel.position.y.toFixed(3); document.getElementById('t-pz').value = activeModel.position.z.toFixed(3);
+    document.getElementById('t-rx').value = THREE.MathUtils.radToDeg(activeModel.rotation.x).toFixed(1); document.getElementById('t-ry').value = THREE.MathUtils.radToDeg(activeModel.rotation.y).toFixed(1); document.getElementById('t-rz').value = THREE.MathUtils.radToDeg(activeModel.rotation.z).toFixed(1);
+    document.getElementById('t-sx').value = activeModel.scale.x.toFixed(3); document.getElementById('t-sy').value = activeModel.scale.y.toFixed(3); document.getElementById('t-sz').value = activeModel.scale.z.toFixed(3);
+    renderVisualizer();
+  });
+  vsScene.add(vsTransform);
+}
+function renderVisualizer() { if(vsRenderer) vsRenderer.render(vsScene, vsCamera); }
+function setGizmo(mode) {
+  if(!vsTransform) return; vsTransform.setMode(mode);
+  document.getElementById('tb-t').classList.toggle('active', mode==='translate'); document.getElementById('tb-r').classList.toggle('active', mode==='rotate'); document.getElementById('tb-s').classList.toggle('active', mode==='scale')
+}
+
+// Map HTML inputs back to 3D Model
+document.querySelectorAll('.t-inputs input').forEach(input => {
+  input.addEventListener('input', () => {
+    if (!activeModel) return;
+    activeModel.position.set(parseFloat(document.getElementById('t-px').value)||0, parseFloat(document.getElementById('t-py').value)||0, parseFloat(document.getElementById('t-pz').value)||0);
+    activeModel.rotation.set(THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-rx').value)||0), THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-ry').value)||0), THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-rz').value)||0));
+    activeModel.scale.set(parseFloat(document.getElementById('t-sx').value)||1, parseFloat(document.getElementById('t-sy').value)||1, parseFloat(document.getElementById('t-sz').value)||1);
+    renderVisualizer();
+  });
+});
+
+async function loadVisualizerAssets() {
+  if (ncMode !== '3d' || !ncImgBlob || !ncAssetBlob) return;
+  initVisualizer();
+  
+  // 1. Process Target Plane
+  const imgUrl = URL.createObjectURL(ncImgBlob)
+  const img = new Image(); img.src = imgUrl; await new Promise(r => img.onload = r);
+  const crop = getDefaultCrop(img.width, img.height); const aspect = crop.height / crop.width;
+  
+  if (targetPlanegeo) { vsScene.remove(targetPlanegeo); targetPlanegeo.material.map.dispose(); targetPlanegeo.geometry.dispose(); }
+  const tex = new THREE.TextureLoader().load(imgUrl, renderVisualizer);
+  targetPlanegeo = new THREE.Mesh(new THREE.PlaneGeometry(1, aspect), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+  targetPlanegeo.rotation.x = -Math.PI / 2; // Flat on ground
+  vsScene.add(targetPlanegeo);
+
+  // 2. Process GLB
+  if (activeModel) { vsScene.remove(activeModel); vsTransform.detach(); }
+  const loader = new THREE.GLTFLoader();
+  loader.load(URL.createObjectURL(ncAssetBlob), (gltf) => {
+    activeModel = gltf.scene; vsScene.add(activeModel); vsTransform.attach(activeModel);
+    // Reset inputs
+    document.querySelectorAll('.t-inputs input').forEach(i => i.value = i.id.startsWith('t-s')?"1":"0"); renderVisualizer();
+  });
+}
+
+// ==========================================
+// =          APP LOGIC                     =
+// ==========================================
+let ncImgBlob = null; let ncAssetBlob = null;
+document.getElementById('nc-img-input').addEventListener('change', e => { if (e.target.files[0]) { ncImgBlob = e.target.files[0]; document.getElementById('drop-nc-img').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
+document.getElementById('nc-asset-input').addEventListener('change', e => { if (e.target.files[0]) { ncAssetBlob = e.target.files[0]; document.getElementById('drop-nc-asset').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
+function updateNoCodeBtn() { 
+  if (ncImgBlob && ncAssetBlob) { 
+    document.getElementById('nc-files-bar').classList.remove('hidden'); document.getElementById('nc-btn').disabled = false; if(!document.getElementById('nc-repo-name').value) document.getElementById('nc-repo-name').value = 'mi-proyecto-ar'; 
+    if (ncMode === '3d') { document.getElementById('preview-container').classList.add('visible'); document.getElementById('nc-transform').classList.add('visible'); loadVisualizerAssets(); }
+  } 
+}
+function clearNoCode() { 
+  ncImgBlob = null; ncAssetBlob = null; document.getElementById('nc-files-bar').classList.add('hidden'); document.getElementById('nc-btn').disabled = true; 
+  document.getElementById('drop-nc-img').style.borderColor = ''; document.getElementById('drop-nc-asset').style.borderColor = ''; document.getElementById('nc-asset-input').value = ''; document.getElementById('nc-img-input').value = ''
+  document.getElementById('preview-container').classList.remove('visible'); document.getElementById('nc-transform').classList.remove('visible');
+  if (vsTransform) vsTransform.detach(); if (activeModel) vsScene.remove(activeModel); activeModel = null; renderVisualizer();
 }
 
 async function startDeploy(user, token, repoName, treePayload) {
     setStatus('Subiendo a GitHub...', `Chequeando repositorio: ${repoName}...`)
     try { await ghCall(`/repos/${user}/${repoName}`, token) }
-    catch (e) {
-      if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) }
-      else throw e
-    }
+    catch (e) { if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) } else throw e }
     const treeRes = await ghCall(`/repos/${user}/${repoName}/git/trees`, token, 'POST', { tree: treePayload })
     const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', { message: 'Deploy via AR Publisher', tree: treeRes.sha })
 
@@ -321,33 +395,16 @@ async function startDeploy(user, token, repoName, treePayload) {
     try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/main`, token, 'PATCH', { sha: commitRes.sha, force: true }) }
     catch(e) {
       try { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/main', sha: commitRes.sha }) }
-      catch(e2) {
-        currentBranch = 'master'
-        try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/master`, token, 'PATCH', { sha: commitRes.sha, force: true }) }
-        catch(e3) { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/master', sha: commitRes.sha }) }
-      }
+      catch(e2) { currentBranch = 'master'; try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/master`, token, 'PATCH', { sha: commitRes.sha, force: true }) } catch(e3) { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/master', sha: commitRes.sha }) } }
     }
 
     setStatus('Activando Pages', 'Levantando servidor gratis online...')
-    for(let att=0; att<3; att++){ await new Promise(r => setTimeout(r, 4000)); try {
-      await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, { method:'POST', headers:{ Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json' }, body: JSON.stringify({source:{branch:currentBranch, path:'/'}}) }); break
-    } catch(e){} }
-
+    for(let att=0; att<3; att++){ await new Promise(r => setTimeout(r, 4000)); try { await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, { method:'POST', headers:{ Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json' }, body: JSON.stringify({source:{branch:currentBranch, path:'/'}}) }); break } catch(e){} }
     const pagesUrl = `https://${user}.github.io/${repoName}/`
     document.getElementById('r-url').href = pagesUrl; document.getElementById('r-url').innerText = pagesUrl
     document.getElementById('r-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(pagesUrl)}`
     document.getElementById('loading').classList.add('hidden'); document.getElementById('result').classList.remove('hidden'); document.getElementById('result').scrollIntoView({behavior: 'smooth'})
 }
-
-// PUBLISH
-function publishZip() { /* Previous zip publish code omitted for brevity but keeping UI */ alert("Feature temporarly disabled in DOM for this demo."); }
-
-// NO CODE 
-let ncImgBlob = null; let ncAssetBlob = null;
-document.getElementById('nc-img-input').addEventListener('change', e => { if (e.target.files[0]) { ncImgBlob = e.target.files[0]; document.getElementById('drop-nc-img').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
-document.getElementById('nc-asset-input').addEventListener('change', e => { if (e.target.files[0]) { ncAssetBlob = e.target.files[0]; document.getElementById('drop-nc-asset').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
-function updateNoCodeBtn() { if (ncImgBlob && ncAssetBlob) { document.getElementById('nc-files-bar').classList.remove('hidden'); document.getElementById('nc-btn').disabled = false; if(!document.getElementById('nc-repo-name').value) document.getElementById('nc-repo-name').value = 'mi-proyecto-ar'; } }
-function clearNoCode() { ncImgBlob = null; ncAssetBlob = null; document.getElementById('nc-files-bar').classList.add('hidden'); document.getElementById('nc-btn').disabled = true; document.getElementById('drop-nc-img').style.borderColor = ''; document.getElementById('drop-nc-asset').style.borderColor = ''; document.getElementById('nc-asset-input').value = ''; document.getElementById('nc-img-input').value = ''}
 
 async function publishNoCode() {
   const user = document.getElementById('gh-user').value.trim(), token = document.getElementById('gh-token').value.trim(), repoName = document.getElementById('nc-repo-name').value.trim()
@@ -358,33 +415,25 @@ async function publishNoCode() {
     setStatus('Procesando Vision Mágica', 'Convirtiendo tracking points...')
     const targetName = 'm_target'
     const data = await generateTargetDataFromBlob(ncImgBlob, targetName)
-    
-    // Calculate Aspect Ratio strictly from the 8th wall default crop (height / width in 8w landscape/portrait standards)
     const aspect = data.crop.height / data.crop.width; 
 
     // Entity Templates
-    let aframeEntity = ''
-    let aframeAssets = ''
+    let aframeEntity = '', aframeAssets = ''
     const assetExt = ncAssetBlob.name.split('.').pop().toLowerCase()
     
     if (ncMode === '3d') {
       const pos = `${document.getElementById('t-px').value} ${document.getElementById('t-py').value} ${document.getElementById('t-pz').value}`
       const rot = `${document.getElementById('t-rx').value} ${document.getElementById('t-ry').value} ${document.getElementById('t-rz').value}`
       const scl = `${document.getElementById('t-sx').value} ${document.getElementById('t-sy').value} ${document.getElementById('t-sz').value}`
-      
       aframeAssets = `<a-asset-item id="asset_model" src="asset.${assetExt}"></a-asset-item>`
       aframeEntity = `<a-entity gltf-model="#asset_model" position="${pos}" rotation="${rot}" scale="${scl}"></a-entity>`
     } else {
-      // It's Video/Flat. 
-      // Important video configs for iOS AR autoplay -> muted playsinline
-      if (assetExt === 'mp4' || assetExt === 'webm') {
-        aframeAssets = `<video id="asset_vid" autoplay loop="true" muted="true" playsinline="true" crossorigin="anonymous" src="asset.${assetExt}"></video>`
-      } else {
-        aframeAssets = `<img id="asset_vid" src="asset.${assetExt}"></img>`
-      }
-      
+      if (assetExt === 'mp4' || assetExt === 'webm') { aframeAssets = `<video id="asset_vid" autoplay loop="true" muted="true" playsinline="true" crossorigin="anonymous" src="asset.${assetExt}"></video>` }
+      else { aframeAssets = `<img id="asset_vid" src="asset.${assetExt}"></img>` }
       // The physical dimension of a target is 1 unit width
-      aframeEntity = `<a-video src="#asset_vid" width="1" height="${aspect}" position="0 0 0" rotation="0 0 0"></a-video>`
+      // Note A-Frame image targets track upright by default, so we rotate X -90 to place it flat if we want standard floor tracking, or upright (0 0 0) for walls. By default, 8thwall flat targets are tracked horizontally, so a primitive entity attached to xrextras-named-image-target aligns with the poster. 
+      // The <a-video> component stands vertically, so we MUST rotate it -90 on X so it lies flat on the tracked image target!
+      aframeEntity = `<a-video src="#asset_vid" width="1" height="${aspect}" position="0 0 0" rotation="-90 0 0"></a-video>`
     }
 
     const htmlTemplate = `<!DOCTYPE html>
@@ -404,14 +453,10 @@ async function publishNoCode() {
 </head>
 <body>
   <a-scene xrweb="disableWorldTracking: true" xrextras-loading xrextras-runtime-error renderer="colorManagement: true" vr-mode-ui="enabled: false">
-    <a-assets>
-      ${aframeAssets}
-    </a-assets>
+    <a-assets>${aframeAssets}</a-assets>
     <a-camera position="0 4 10" raycaster="objects: .cantap"></a-camera>
     <a-light type="ambient" intensity="1.2"></a-light>
-    <a-entity xrextras-named-image-target="name: ${targetName}">
-      ${aframeEntity}
-    </a-entity>
+    <a-entity xrextras-named-image-target="name: ${targetName}">${aframeEntity}</a-entity>
   </a-scene>
 </body>
 </html>`
