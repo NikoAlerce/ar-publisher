@@ -200,7 +200,7 @@
     <div class="transform-box" id="nc-transform">
       <div class="t-row"><div class="t-label">Position</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-px" value="0" step="0.1"></div><div class="t-group" data-l="Y"><input type="number" id="t-py" value="0" step="0.1"></div><div class="t-group" data-l="Z"><input type="number" id="t-pz" value="0" step="0.1"></div></div></div>
       <div class="t-row"><div class="t-label">Rotation</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-rx" value="0" step="5"></div><div class="t-group" data-l="Y"><input type="number" id="t-ry" value="0" step="5"></div><div class="t-group" data-l="Z"><input type="number" id="t-rz" value="0" step="5"></div></div></div>
-      <div class="t-row"><div class="t-label">Scale</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-sx" value="1" step="0.1"></div><div class="t-group" data-l="Y"><input type="number" id="t-sy" value="1" step="0.1"></div><div class="t-group" data-l="Z"><input type="number" id="t-sz" value="1" step="0.1"></div></div></div>
+      <div class="t-row"><div class="t-label">Scale</div><div class="t-inputs"><div class="t-group" data-l="X"><input type="number" id="t-sx" value="1" step="0.1"></div><div class="t-group" data-l="Y"><input type="number" id="t-sy" value="1" step="0.1"></div><div class="t-group" data-l="Z"><input type="number" id="t-sz" value="1" step="0.1"></div><button id="s-lock" class="tool-btn active" style="padding:0 6px;" onclick="toggleSLock()" title="Bloquear Proporciones">🔗</button></div></div>
     </div>
 
     <div class="file-bar hidden" id="nc-files-bar" style="justify-content:space-between">
@@ -329,10 +329,23 @@ function setGizmo(mode) {
   document.getElementById('tb-t').classList.toggle('active', mode==='translate'); document.getElementById('tb-r').classList.toggle('active', mode==='rotate'); document.getElementById('tb-s').classList.toggle('active', mode==='scale')
 }
 
+let sLocked = true;
+function toggleSLock() {
+  sLocked = !sLocked;
+  const b = document.getElementById('s-lock');
+  b.classList.toggle('active', sLocked);
+  b.innerText = sLocked ? '🔗' : '🔓';
+}
+
 // Map HTML inputs back to 3D Model
 document.querySelectorAll('.t-inputs input').forEach(input => {
-  input.addEventListener('input', () => {
+  input.addEventListener('input', (e) => {
     if (!activeModel) return;
+    if (sLocked && e.target.id.startsWith('t-s')) {
+       document.getElementById('t-sx').value = e.target.value;
+       document.getElementById('t-sy').value = e.target.value;
+       document.getElementById('t-sz').value = e.target.value;
+    }
     activeModel.position.set(parseFloat(document.getElementById('t-px').value)||0, parseFloat(document.getElementById('t-py').value)||0, parseFloat(document.getElementById('t-pz').value)||0);
     activeModel.rotation.set(THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-rx').value)||0), THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-ry').value)||0), THREE.MathUtils.degToRad(parseFloat(document.getElementById('t-rz').value)||0));
     activeModel.scale.set(parseFloat(document.getElementById('t-sx').value)||1, parseFloat(document.getElementById('t-sy').value)||1, parseFloat(document.getElementById('t-sz').value)||1);
