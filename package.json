@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "@8thwall/image-target-cli": "^1.0.0",
     "adm-zip": "^0.5.17",
     "archiver": "^6.0.1",
     "cors": "^2.8.5",
