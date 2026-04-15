@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AR Publisher</title>
+  <title>AR Publisher — 100% Client-Side</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
+  <!-- JSZip is exactly what we need to read the ZIP in the browser! -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root {
       --bg: #08090d; --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
@@ -23,312 +25,335 @@
       background: radial-gradient(ellipse, rgba(99,102,241,0.08), transparent 70%);
       pointer-events:none;
     }
-
     .container { width: 100%; max-width: 560px; position: relative; z-index: 1; }
 
     /* ── Header ── */
-    .logo { text-align: center; margin-bottom: 40px; }
+    .logo { text-align: center; margin-bottom: 24px; }
     .logo h1 {
       font-size: 26px; font-weight: 700;
       background: linear-gradient(135deg, #f1f5f9, #94a3b8);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
     .logo p { color: var(--dim); font-size: 13px; margin-top: 4px; }
-    .status-bar {
-      display: flex; justify-content: center; gap: 12px; margin-top: 12px;
+
+    /* ── Config Panel ── */
+    .config-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px; margin-bottom: 24px;
     }
-    .chip {
-      font-size: 11px; padding: 3px 10px; border-radius: 100px;
-      border: 1px solid; display: inline-flex; align-items: center; gap: 5px;
+    .config-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .config-row.last { margin-bottom: 0; }
+    .c-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .c-group label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+    .c-input {
+      padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px;
     }
-    .chip.ok { color: var(--green); border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.08); }
-    .chip.warn { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
-    .chip.err { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); }
+    .c-input:focus { outline: none; border-color: var(--accent); }
 
     /* ── Drop zone ── */
     .drop-zone {
       border: 2px dashed rgba(99,102,241,0.35); border-radius: 20px;
-      padding: 60px 30px; text-align: center; cursor: pointer;
+      padding: 50px 30px; text-align: center; cursor: pointer;
       transition: all 0.2s; background: rgba(99,102,241,0.03);
-      position: relative;
     }
     .drop-zone:hover, .drop-zone.over {
-      border-color: var(--accent); background: rgba(99,102,241,0.08);
-      transform: scale(1.01);
+       border-color: var(--accent); background: rgba(99,102,241,0.08); transform: scale(1.01);
     }
     .drop-zone svg { width: 56px; height: 56px; color: var(--accent2); opacity: 0.5; margin-bottom: 16px; }
     .drop-zone h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
     .drop-zone p { color: var(--dim); font-size: 13px; }
-    .drop-zone input { display: none; }
 
-    /* Repo name input */
-    .repo-row {
-      display: flex; align-items: center; gap: 10px;
-      margin-top: 20px; justify-content: center;
-    }
-    .repo-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .repo-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; justify-content: center; }
+    .repo-label { font-size: 12px; color: var(--dim); }
     .repo-input {
-      padding: 8px 12px; background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border); border-radius: 8px;
-      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px;
-      width: 220px; outline: none; transition: border-color 0.15s;
+      padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono'; font-size: 13px; width: 220px;
     }
-    .repo-input:focus { border-color: var(--accent); }
 
     /* ── File selected ── */
     .file-bar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 18px; margin-top: 16px;
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px; margin-top: 16px;
       background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22);
       border-radius: 12px; animation: fadeIn 0.2s;
     }
     .file-bar .name { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-bar .size { font-size: 12px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
-    .file-bar .clear {
-      background: none; border: none; color: var(--dim); cursor: pointer;
-      font-size: 16px; padding: 2px; border-radius: 4px;
-    }
+    .file-bar .clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px; }
     .file-bar .clear:hover { color: var(--red); }
 
-    /* ── Publish button ── */
+    /* ── Pub Btn ── */
     .pub-btn {
-      display: block; width: 100%; margin-top: 20px;
-      padding: 18px; border: none; border-radius: 14px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: white; font-family: 'Inter', sans-serif;
-      font-size: 17px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 6px 28px rgba(99,102,241,0.4);
-      transition: all 0.2s; position: relative; overflow: hidden;
+      display: block; width: 100%; margin-top: 20px; padding: 18px; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 700; font-size: 17px;
+      cursor: pointer; box-shadow: 0 6px 28px rgba(99,102,241,0.4);
     }
-    .pub-btn:hover { box-shadow: 0 10px 36px rgba(99,102,241,0.55); transform: translateY(-1px); }
-    .pub-btn:active { transform: translateY(0); }
-    .pub-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
-
-    /* ── Result ── */
-    .result {
-      margin-top: 28px; padding: 28px;
-      background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2);
-      border-radius: 20px; animation: fadeIn 0.3s; text-align: center;
-    }
-    .result h3 { font-size: 20px; margin-bottom: 4px; }
-    .result .sub { font-size: 13px; color: var(--dim); margin-bottom: 20px; }
-    .result .link {
-      display: block; color: var(--accent2); font-family: 'JetBrains Mono', monospace;
-      font-size: 14px; text-decoration: none; word-break: break-all; margin-bottom: 6px;
-    }
-    .result .link:hover { text-decoration: underline; }
-    .repo-link { font-size: 12px; color: var(--dim); margin-bottom: 20px; display: block; }
-    .repo-link:hover { color: var(--text); }
-    .qr-wrap {
-      display: inline-block; background: white; padding: 10px;
-      border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      margin-bottom: 16px;
-    }
-    .qr-wrap img { width: 180px; height: 180px; display: block; border-radius: 4px; }
-    .qr-label { font-size: 12px; color: var(--dim); margin-bottom: 16px; }
-    .copy-btn {
-      padding: 10px 20px; background: rgba(255,255,255,0.06);
-      border: 1px solid var(--border); border-radius: 8px;
-      color: var(--dim); font-family: 'Inter', sans-serif; font-size: 13px;
-      cursor: pointer; transition: all 0.15s; margin: 0 4px;
-    }
-    .copy-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
-
-    /* ── Error ── */
-    .error-bar {
-      margin-top: 16px; padding: 14px 18px;
-      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
-      border-radius: 12px; font-size: 13px; color: #fca5a5; animation: fadeIn 0.2s;
-      white-space: pre-wrap; word-break: break-word;
-    }
+    .pub-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ── Loading ── */
     .loading {
       position: fixed; inset: 0; background: rgba(8,9,13,0.9); backdrop-filter: blur(8px);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999;
     }
-    .spinner {
-      width: 44px; height: 44px;
-      border: 3px solid rgba(99,102,241,0.2); border-top-color: var(--accent);
-      border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 18px;
-    }
+    .spinner { width: 44px; height: 44px; border: 3px solid rgba(99,102,241,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 18px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading p { font-size: 15px; font-weight: 600; }
-    .loading .sub { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
+    .loading .sub { font-size: 12px; color: var(--accent2); margin-top: 6px; font-family: 'JetBrains Mono'; text-align: center; }
+
+    /* ── Result & Error ── */
+    .result {
+      margin-top: 28px; padding: 28px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 20px; animation: fadeIn 0.3s; text-align: center;
+    }
+    .result h3 { font-size: 20px; margin-bottom: 20px; }
+    .qr-wrap { display: inline-block; background: white; padding: 10px; border-radius: 12px; margin-bottom: 16px; }
+    .qr-wrap img { width: 180px; height: 180px; }
+    .link { display: block; color: var(--accent2); font-family: 'JetBrains Mono'; font-size: 14px; text-decoration: none; margin-bottom: 6px; }
+    .error-bar { margin-top: 16px; padding: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; color: #fca5a5; font-size: 13px; }
 
     .hidden { display: none !important; }
-    @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="logo">
-    <h1>AR Publisher</h1>
-    <p>Tirá el ZIP del Desktop Studio → GitHub Pages → QR</p>
-    <div class="status-bar" id="status-bar"></div>
+    <h1>AR Publisher (Client-Side)</h1>
+    <p>Descomprime y sube directo desde tu navegador. ¡Sin límites de Vercel!</p>
   </div>
 
-  <!-- Drop zone -->
+  <div class="config-panel">
+    <div class="config-row">
+      <div class="c-group">
+        <label>Usuario de GitHub</label>
+        <input type="text" class="c-input" id="gh-user" placeholder="ej: NikoAlerce" spellcheck="false" />
+      </div>
+      <div class="c-group">
+        <label>GitHub Token (Classic)</label>
+        <input type="password" class="c-input" id="gh-token" placeholder="ghp_XXX..." spellcheck="false" />
+      </div>
+    </div>
+  </div>
+
   <div class="drop-zone" id="drop" onclick="document.getElementById('file-input').click()">
     <svg viewBox="0 0 48 48" fill="none">
       <path d="M12 40H36C37.1 40 38 39.1 38 38V18L28 8H12C10.9 8 10 8.9 10 10V38C10 39.1 10.9 40 12 40Z" stroke="currentColor" stroke-width="1.5"/>
       <path d="M28 8V18H38" stroke="currentColor" stroke-width="1.5"/>
-      <path d="M20 26L24 30L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 26L24 30L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
       <path d="M24 18V30" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
-    <h2>Tirá tu ZIP acá</h2>
-    <p>Exportado desde Desktop Studio → Publish → HTML5 → Build</p>
-    <input type="file" id="file-input" accept=".zip"/>
+    <h2>Tirá tu ZIP de 8th Wall acá</h2>
+    <p>100% procesado en el browser, soporta archivos grandes.</p>
+    <input type="file" id="file-input" accept=".zip" style="display:none"/>
   </div>
 
-  <!-- File selected -->
   <div class="file-bar hidden" id="file-bar">
     <span>📦</span>
     <span class="name" id="file-name"></span>
-    <span class="size" id="file-size"></span>
     <button class="clear" onclick="clearFile()">✕</button>
   </div>
 
-  <!-- Repo name -->
   <div class="repo-row">
     <span class="repo-label">Nombre del repo:</span>
-    <input class="repo-input" id="repo-name" value="ar-experience" spellcheck="false"/>
+    <input class="repo-input" id="repo-name" spellcheck="false"/>
   </div>
 
-  <!-- Publish button -->
-  <button class="pub-btn" id="pub-btn" onclick="publish()" disabled>
-    Publicar en GitHub Pages
-  </button>
-
-  <!-- Error -->
+  <button class="pub-btn" id="pub-btn" onclick="publish()" disabled>Publicar en GitHub</button>
   <div class="error-bar hidden" id="error"></div>
 
-  <!-- Result -->
   <div class="result hidden" id="result">
-    <h3>✓ Publicado</h3>
-    <p class="sub">GitHub Pages puede tardar 1-2 min la primera vez</p>
+    <h3>✓ Publicado con Éxito</h3>
+    <div class="qr-wrap"><img id="r-qr" alt="QR"/></div>
     <a class="link" id="r-url" href="#" target="_blank"></a>
-    <a class="repo-link" id="r-repo" href="#" target="_blank"></a>
-    <div class="qr-wrap">
-      <img id="r-qr" alt="QR"/>
-    </div>
-    <p class="qr-label">Escaneá con el celular para ver en AR</p>
-    <button class="copy-btn" onclick="copyLink()">📋 Copiar link</button>
-    <button class="copy-btn" onclick="downloadQR()">⬇ Descargar QR</button>
   </div>
 </div>
 
-<!-- Loading -->
 <div class="loading hidden" id="loading">
   <div class="spinner"></div>
   <p>Publicando...</p>
-  <p class="sub" id="load-sub">Subiendo a GitHub</p>
+  <p class="sub" id="load-sub">Abriendo ZIP en el navegador...</p>
 </div>
 
 <script>
+// Load stored credentials
+document.getElementById('gh-user').value = localStorage.getItem('ar_usr') || ''
+document.getElementById('gh-token').value = localStorage.getItem('ar_tok') || ''
+
+document.getElementById('gh-user').addEventListener('input', e => localStorage.setItem('ar_usr', e.target.value.trim()))
+document.getElementById('gh-token').addEventListener('input', e => localStorage.setItem('ar_tok', e.target.value.trim()))
+
 let zipFile = null
-
-// ── Init ──
-fetch('/api/status').then(r => r.json()).then(s => {
-  const bar = document.getElementById('status-bar')
-  bar.innerHTML = `
-    <span class="chip ${s.git ? 'ok' : 'err'}">${s.git ? '✓' : '✗'} git</span>
-    <span class="chip ${s.tokenSet ? 'ok' : 'warn'}">${s.tokenSet ? '✓' : '⚠'} token</span>
-    <span class="chip ok">@${s.user}</span>
-  `
-  if (s.defaultRepo) document.getElementById('repo-name').value = s.defaultRepo
-  if (!s.tokenSet) showError('⚠ Abrí config.json y pegá tu GitHub token.\nCreá uno en: github.com/settings/tokens/new (scope: repo)')
-})
-
-// ── Drop zone ──
 const drop = document.getElementById('drop')
-const fileInput = document.getElementById('file-input')
 
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over') })
 drop.addEventListener('dragleave', () => drop.classList.remove('over'))
 drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]) })
-fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]) })
+document.getElementById('file-input').addEventListener('change', e => { if (e.target.files[0]) setFile(e.target.files[0]) })
 
 function setFile(f) {
   if (!f.name.endsWith('.zip')) { showError('Solo archivos .zip'); return }
   zipFile = f
-  document.getElementById('file-name').textContent = f.name
-  document.getElementById('file-size').textContent = (f.size / 1048576).toFixed(1) + ' MB'
+  document.getElementById('file-name').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + ' MB)'
   document.getElementById('file-bar').classList.remove('hidden')
   drop.classList.add('hidden')
   document.getElementById('pub-btn').disabled = false
   hideError()
-  // Auto nombre del repo desde el zip
   const base = f.name.replace(/\.zip$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
   document.getElementById('repo-name').value = base
 }
 
 function clearFile() {
-  zipFile = null
-  fileInput.value = ''
+  zipFile = null; document.getElementById('file-input').value = ''
   document.getElementById('file-bar').classList.add('hidden')
-  drop.classList.remove('hidden')
-  document.getElementById('pub-btn').disabled = true
+  drop.classList.remove('hidden'); document.getElementById('pub-btn').disabled = true
 }
 
-// ── Publish ──
+function showError(msg) { const e = document.getElementById('error'); e.textContent = msg; e.classList.remove('hidden') }
+function hideError() { document.getElementById('error').classList.add('hidden') }
+function setStatus(t) { document.getElementById('load-sub').innerText = t }
+
+// GitHub API Helper
+async function ghCall(url, token, method='GET', body=null) {
+  const params = {
+    method,
+    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+  }
+  if (body) { params.headers['Content-Type'] = 'application/json'; params.body = JSON.stringify(body) }
+  
+  const res = await fetch(`https://api.github.com${url}`, params)
+  if (!res.ok) {
+    const errObj = await res.json().catch(e => ({}))
+    throw new Error(errObj.message || `Error ${res.status}: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+// Convert ArrayBuffer to Base64 (browser)
+function bufferToBase64(buffer) {
+  let binary = ''; const bytes = new Uint8Array(buffer)
+  const chunk = 50000; // avoid stack overflow on huge files
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
 async function publish() {
+  const user = document.getElementById('gh-user').value.trim()
+  const token = document.getElementById('gh-token').value.trim()
+  const repoName = document.getElementById('repo-name').value.trim()
+
+  if (!user || !token) return showError('Agregá tu Usuario y Token arriba.')
   if (!zipFile) return
+
   hideError()
   document.getElementById('result').classList.add('hidden')
   document.getElementById('loading').classList.remove('hidden')
 
-  const fd = new FormData()
-  fd.append('zip', zipFile)
-  fd.append('repo', document.getElementById('repo-name').value.trim())
-
   try {
-    document.getElementById('load-sub').textContent = 'Descomprimiendo ZIP...'
-    const res = await fetch('/api/publish', { method: 'POST', body: fd })
-    const data = await res.json()
+    setStatus('Descomprimiendo ZIP en memoria (JSZip)...')
+    const jszip = new JSZip()
+    const zipData = await jszip.loadAsync(zipFile)
+    
+    // Encuentra la carpeta principal si existe, para ignorar carpetas superiores
+    let rootPath = ''
+    let htmlFound = false
+    const filesArray = []
+    
+    zipData.forEach((relPath, zipEntry) => {
+      if (!zipEntry.dir) {
+        filesArray.push(zipEntry)
+        if (relPath.endsWith('index.html')) { htmlFound = true; rootPath = relPath.substring(0, relPath.lastIndexOf('index.html')) }
+      }
+    })
+
+    const filesToUpload = filesArray.filter(entry => entry.name.startsWith(rootPath))
+    
+    // 1. Repo Creation
+    setStatus(`Chequeando repositorio: ${repoName}...`)
+    try { await ghCall(`/repos/${user}/${repoName}`, token) } // if exists, ok
+    catch (e) {
+      if (e.message.includes('Not Found')) {
+        setStatus('Creando repositorio en GitHub...')
+        await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true })
+        await new Promise(r => setTimeout(r, 4000))
+      } else throw e
+    }
+
+    // 2. Upload Blobs
+    const treePayload = []
+    treePayload.push({ path: '.nojekyll', mode: '100644', type: 'blob', content: '' })
+
+    let i = 0
+    for (const file of filesToUpload) {
+      i++
+      const finalPath = file.name.substring(rootPath.length)
+      setStatus(`Subiendo archivo a GitHub... (${i}/${filesToUpload.length})\n${finalPath}`)
+      
+      const buffer = await file.async("arraybuffer")
+      const base64Content = bufferToBase64(buffer)
+
+      const blobRes = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', {
+        content: base64Content, encoding: 'base64'
+      })
+
+      treePayload.push({
+        path: finalPath,
+        mode: '100644',
+        type: 'blob',
+        sha: blobRes.sha
+      })
+    }
+
+    // 3. Tree, Commit and Ref
+    setStatus('Creando commit en la rama main...')
+    const treeRes = await ghCall(`/repos/${user}/${repoName}/git/trees`, token, 'POST', { tree: treePayload })
+    const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', {
+      message: 'Deploy AR experience (Serverless Frontend)', tree: treeRes.sha
+    })
+
+    let currentBranch = 'main'
+    try {
+      await ghCall(`/repos/${user}/${repoName}/git/refs/heads/main`, token, 'PATCH', { sha: commitRes.sha, force: true })
+    } catch(e) {
+      try { 
+        await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/main', sha: commitRes.sha }) 
+      } catch(e2) {
+        currentBranch = 'master'
+        try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/master`, token, 'PATCH', { sha: commitRes.sha, force: true }) }
+        catch(e3) { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/master', sha: commitRes.sha }) }
+      }
+    }
+
+    // 4. Enable GitHub Pages
+    setStatus('Activando GitHub Pages...')
+    let pagesOk = false
+    for(let att=0; att<3; att++){
+      await new Promise(r => setTimeout(r, 3000))
+      try {
+        await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, {
+          method:'POST', headers:{ Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json' },
+          body: JSON.stringify({source:{branch:currentBranch, path:'/'}})
+        })
+        pagesOk = true; break
+      } catch(e){}
+    }
+
+    // SUCCESS
+    const pagesUrl = `https://${user}.github.io/${repoName}/`
+    document.getElementById('r-url').href = pagesUrl
+    document.getElementById('r-url').innerText = pagesUrl
+    document.getElementById('r-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(pagesUrl)}`
+    
     document.getElementById('loading').classList.add('hidden')
+    document.getElementById('result').classList.remove('hidden')
+    document.getElementById('result').scrollIntoView({behavior: 'smooth'})
 
-    if (!data.ok) throw new Error(data.error)
-
-    // Mostrar resultado
-    const r = document.getElementById('result')
-    r.classList.remove('hidden')
-
-    document.getElementById('r-url').href = data.url
-    document.getElementById('r-url').textContent = data.url
-
-    document.getElementById('r-repo').href = data.repo
-    document.getElementById('r-repo').textContent = data.repo
-
-    document.getElementById('r-qr').src = data.qr
-
-    r.scrollIntoView({ behavior: 'smooth' })
   } catch (err) {
+    console.error(err)
     document.getElementById('loading').classList.add('hidden')
     showError(err.message)
   }
-}
-
-// ── Utils ──
-function showError(msg) {
-  const el = document.getElementById('error')
-  el.textContent = msg
-  el.classList.remove('hidden')
-}
-function hideError() {
-  document.getElementById('error').classList.add('hidden')
-}
-function copyLink() {
-  const url = document.getElementById('r-url').href
-  navigator.clipboard.writeText(url)
-}
-function downloadQR() {
-  const a = document.createElement('a')
-  a.href = document.getElementById('r-qr').src
-  a.download = 'ar-qr-code.png'
-  a.click()
 }
 </script>
 </body>
