@@ -359,9 +359,31 @@ async function loadVisualizerAssets() {
   if (activeModel) { vsScene.remove(activeModel); vsTransform.detach(); }
   const loader = new THREE.GLTFLoader();
   loader.load(URL.createObjectURL(ncAssetBlob), (gltf) => {
-    activeModel = gltf.scene; vsScene.add(activeModel); vsTransform.attach(activeModel);
-    // Reset inputs
-    document.querySelectorAll('.t-inputs input').forEach(i => i.value = i.id.startsWith('t-s')?"1":"0"); renderVisualizer();
+    activeModel = gltf.scene; 
+    
+    // --- AUTOSCALE LOGIC ---
+    // Measure the actual dimensions of the loaded 3D model
+    const box = new THREE.Box3().setFromObject(activeModel);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    
+    // The target width is 1 unit. We scale the model so its largest side is exactly 0.8 units (80% of target width)
+    if (maxDim > 0) {
+      const scaleFactor = 0.8 / maxDim;
+      activeModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      document.getElementById('t-sx').value = scaleFactor.toFixed(3);
+      document.getElementById('t-sy').value = scaleFactor.toFixed(3);
+      document.getElementById('t-sz').value = scaleFactor.toFixed(3);
+    } else {
+      document.getElementById('t-sx').value = "1"; document.getElementById('t-sy').value = "1"; document.getElementById('t-sz').value = "1";
+    }
+
+    // Reset rotation and position inputs
+    document.getElementById('t-px').value = "0"; document.getElementById('t-py').value = "0"; document.getElementById('t-pz').value = "0";
+    document.getElementById('t-rx').value = "0"; document.getElementById('t-ry').value = "0"; document.getElementById('t-rz').value = "0";
+
+    vsScene.add(activeModel); vsTransform.attach(activeModel);
+    renderVisualizer();
   });
 }
 
