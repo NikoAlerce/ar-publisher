@@ -485,17 +485,27 @@ async function publishZip() {
 
     setStatus('Iniciando Proyecto', 'Preparando archivos del ZIP...')
     const zip = await JSZip.loadAsync(zipFile)
-    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
     
-    // Find base path (some zips have a folder inside)
+    // Find base path: shallowest index.html ignoring junk
+    const allFiles = Object.keys(zip.files);
+    const validPaths = allFiles.filter(f => !f.includes('__MACOSX') && !f.split('/').pop().startsWith('.'));
+    const indexFiles = validPaths.filter(f => f.toLowerCase().endsWith('index.html'))
+                                 .sort((a,b) => a.split('/').length - b.split('/').length);
+    
+    const hasIndex = indexFiles[0];
     let basePath = '';
-    const files = Object.keys(zip.files);
-    const hasIndex = files.find(f => f.toLowerCase().endsWith('index.html'));
     if (hasIndex && hasIndex.includes('/')) basePath = hasIndex.substring(0, hasIndex.lastIndexOf('/') + 1);
 
-    const filesToUpload = Object.entries(zip.files).filter(([path, file]) => !file.dir && path.startsWith(basePath))
+    const filesToUpload = Object.entries(zip.files).filter(([path, file]) => {
+        return !file.dir && path.startsWith(basePath) && !path.includes('__MACOSX') && !path.split('/').pop().startsWith('.');
+    });
+
     const total = filesToUpload.length
     let count = 0
+
+    // Pre-create .nojekyll blob to be safe
+    const njRes = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: '', encoding: 'utf-8' })
+    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', sha: njRes.sha }]
 
     const concurrency = 8
     for (let i = 0; i < filesToUpload.length; i += concurrency) {
