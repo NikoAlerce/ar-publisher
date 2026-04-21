@@ -430,6 +430,18 @@ document.querySelectorAll('.t-inputs input').forEach(input => {
   });
 });
 
+async function checkConfig() {
+  try {
+    const res = await fetch('/api/status').then(r => r.json());
+    if (res.user) document.getElementById('gh-user').value = res.user;
+    if (res.provider === 'cloudflare') {
+       document.querySelector('h1').innerText += ' ☁️';
+       document.querySelector('p').innerText = 'Versión Cloudflare (Límite 100MB)';
+    }
+  } catch(e) {}
+}
+checkConfig();
+
 async function loadVisualizerAssets() {
   if (ncMode !== '3d' || !ncImgBlob || !ncAssetBlob) return;
   initVisualizer();
