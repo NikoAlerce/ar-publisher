@@ -435,8 +435,113 @@ async function loadVisualizerAssets() {
 }
 
 // ==========================================
+// ==========================================
 // =          APP LOGIC                     =
 // ==========================================
+
+// Global Drag & Drop Handling
+document.querySelectorAll('.drop-zone').forEach(dz => {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over') })
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'))
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    const file = e.dataTransfer.files[0]; if (!file) return;
+    const id = dz.id;
+    if (id === 'drop-zip') handleZipFile(file);
+    else if (id === 'drop-img') handleTargetImg(file);
+    else if (id === 'drop-nc-img') { ncImgBlob = file; dz.style.borderColor = 'var(--green)'; updateNoCodeBtn(); }
+    else if (id === 'drop-nc-asset') { ncAssetBlob = file; dz.style.borderColor = 'var(--green)'; updateNoCodeBtn(); }
+  })
+})
+
+// --- SECTION 1: ZIP Logic ---
+let zipFile = null;
+document.getElementById('zip-input').addEventListener('change', e => { if (e.target.files[0]) handleZipFile(e.target.files[0]) })
+
+function handleZipFile(file) {
+  if (!file.name.endsWith('.zip')) return showError('El archivo debe ser .zip');
+  zipFile = file;
+  document.getElementById('zip-name').textContent = file.name;
+  document.getElementById('zip-bar').classList.remove('hidden');
+  document.getElementById('pub-btn').disabled = false;
+  const nameProposal = file.name.replace('.zip', '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+  if (!document.getElementById('repo-name').value) document.getElementById('repo-name').value = nameProposal;
+}
+
+function clearZip() { 
+  zipFile = null; document.getElementById('zip-bar').classList.add('hidden'); 
+  document.getElementById('pub-btn').disabled = true; document.getElementById('zip-input').value = '' 
+}
+
+async function publishZip() {
+  const user = document.getElementById('gh-user').value.trim(), token = document.getElementById('gh-token').value.trim(), repoName = document.getElementById('repo-name').value.trim()
+  if (!user || !token || !repoName) return showError('Configurá usuario, token y nombre del repo.')
+  hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
+
+  try {
+    setStatus('Iniciando Proyecto', 'Preparando archivos del ZIP...')
+    const zip = await JSZip.loadAsync(zipFile)
+    const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
+    
+    // Find base path (some zips have a folder inside)
+    let basePath = '';
+    const files = Object.keys(zip.files);
+    const hasIndex = files.find(f => f.toLowerCase().endsWith('index.html'));
+    if (hasIndex && hasIndex.includes('/')) basePath = hasIndex.substring(0, hasIndex.lastIndexOf('/') + 1);
+
+    setStatus('Subiendo Assets', 'Sincronizando con la nube...')
+    for (const [path, file] of Object.entries(zip.files)) {
+      if (file.dir || !path.startsWith(basePath)) continue;
+      const relPath = path.replace(basePath, '');
+      const content = await file.async('arraybuffer');
+      const res = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(content), encoding: 'base64' })
+      treePayload.push({ path: relPath, mode: '100644', type: 'blob', sha: res.sha })
+    }
+
+    setStatus('Creando Repositorio', 'Asegurando espacio en GitHub...')
+    try { await ghCall(`/repos/${user}/${repoName}`, token) }
+    catch(e) { if(e.message.includes('Not Found')) await ghCall('/user/repos', token, 'POST', { name: repoName, description: 'Proyecto AR Publisher (ZIP Import)', auto_init: true }); await new Promise(r => setTimeout(r, 4000)) }
+
+    await startDeploy(user, token, repoName, treePayload)
+  } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
+}
+
+// --- SECTION 2: Target Logic ---
+let targetImgBlob = null;
+document.getElementById('img-input').addEventListener('change', e => { if (e.target.files[0]) handleTargetImg(e.target.files[0]) })
+
+function handleTargetImg(file) {
+  targetImgBlob = file;
+  document.getElementById('img-name').textContent = file.name;
+  document.getElementById('img-bar').classList.remove('hidden');
+  document.getElementById('gen-btn').disabled = false;
+  if (!document.getElementById('target-name').value) document.getElementById('target-name').value = 'mi-target';
+}
+
+function clearImg() { 
+  targetImgBlob = null; document.getElementById('img-bar').classList.add('hidden'); 
+  document.getElementById('gen-btn').disabled = true; document.getElementById('img-input').value = '' 
+}
+
+async function generateTarget() {
+  const name = document.getElementById('target-name').value.trim() || 'target';
+  hideError(); document.getElementById('loading').classList.remove('hidden');
+  setStatus('Generando Target', 'Procesando visión computarizada...')
+  
+  try {
+    const data = await generateTargetDataFromBlob(targetImgBlob, name)
+    const zip = new JSZip();
+    zip.file('target.json', JSON.stringify(data.metadata, null, 2))
+    zip.file(data.metadata.resources.originalImage, data.buffers.original)
+    zip.file(data.metadata.resources.luminanceImage, data.buffers.luminance)
+    
+    const content = await zip.generateAsync({type:'blob'})
+    const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `${name}.zip`; link.click();
+    document.getElementById('loading').classList.add('hidden')
+  } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
+}
+
+// --- SECTION 3: No-Code Logic ---
 let ncImgBlob = null; let ncAssetBlob = null;
 document.getElementById('nc-img-input').addEventListener('change', e => { if (e.target.files[0]) { ncImgBlob = e.target.files[0]; document.getElementById('drop-nc-img').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
 document.getElementById('nc-asset-input').addEventListener('change', e => { if (e.target.files[0]) { ncAssetBlob = e.target.files[0]; document.getElementById('drop-nc-asset').style.borderColor = 'var(--green)'; updateNoCodeBtn() }})
