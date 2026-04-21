@@ -116,6 +116,24 @@
 
     .hidden { display: none !important; }
     @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── Dashboard ── */
+    .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 16px; min-height: 200px; animation: fadeIn 0.3s; }
+    .project-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; transition: transform 0.2s, border-color 0.2s; display: flex; flex-direction: column; align-items: center; }
+    .project-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .project-card h4 { font-size: 14px; color: var(--text); margin-bottom: 2px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+    .project-card p.date { font-size: 10px; color: var(--dim); margin-bottom: 12px; }
+    .project-card img.qr { width: 120px; height: 120px; background: white; padding: 6px; border-radius: 8px; margin-bottom: 14px; display: block; border: 1px solid rgba(255,255,255,0.2); }
+    .project-card .btn-group { display: flex; gap: 8px; width: 100%; flex-direction: column; }
+    .project-card button { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: var(--accent2); padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .project-card button:hover { background: rgba(99,102,241,0.2); color: white; }
+    .project-card button.btn-vis { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: var(--orange); }
+    .project-card button.btn-vis:hover { background: rgba(245,158,11,0.2); color: white; }
+    .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    .dash-header h2 { font-size: 15px; font-weight: 700; display:flex; align-items:center; gap:6px;}
+    .btn-reload { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; color: var(--dim); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11px; transition: all 0.2s; }
+    .btn-reload:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+    .dash-empty { text-align: center; color: var(--dim); font-size: 13px; padding: 40px 20px; border: 1px dashed var(--border); border-radius: 12px; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -130,6 +148,7 @@
     <div class="tab" id="tab-btn-publish" onclick="switchTab('publish')">🚀 Desktop ZIP</div>
     <div class="tab" id="tab-btn-target" onclick="switchTab('target')">🎯 D/L Target</div>
     <div class="tab active" id="tab-btn-nocode" onclick="switchTab('nocode')">⚡ Auto-Creator (Visual)</div>
+    <div class="tab" id="tab-btn-dash" onclick="switchTab('dash')">📁 Mis Proyectos</div>
   </div>
 
   <div class="config-panel" id="auth-panel">
@@ -212,6 +231,17 @@
     <button class="pub-btn btn-orange" id="nc-btn" onclick="publishNoCode()" disabled>🚀 Crear Proyecto Mágico</button>
   </div>
 
+  <!-- SECTION 4: DASHBOARD -->
+  <div id="section-dash" class="hidden">
+    <div class="dash-header">
+      <h2>📁 Mis Proyectos AR</h2>
+      <button class="btn-reload" onclick="loadDashboard()">↻ Recargar</button>
+    </div>
+    <div id="dash-content">
+       <div class="dash-empty">Cargando repositorios...</div>
+    </div>
+  </div>
+
   <div class="error-bar hidden" id="error"></div>
   <div class="result hidden" id="result">
     <h3>✓ ¡Experiencia Online!</h3>
@@ -238,10 +268,11 @@ function setNcType(mode) {
 
 function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(e => e.classList.remove('active')); document.getElementById(`tab-btn-${tabId}`).classList.add('active')
-  const sPublish = document.getElementById('section-publish'), sTarget = document.getElementById('section-target'), sNocode = document.getElementById('section-nocode')
-  sPublish.classList.add('hidden'); sTarget.classList.add('hidden'); sNocode.classList.add('hidden'); document.getElementById(`section-${tabId}`).classList.remove('hidden')
-  document.getElementById('result').classList.add('hidden'); hideError(); document.getElementById('auth-panel').classList.toggle('hidden', tabId === 'target')
+  const sPublish = document.getElementById('section-publish'), sTarget = document.getElementById('section-target'), sNocode = document.getElementById('section-nocode'), sDash = document.getElementById('section-dash')
+  sPublish.classList.add('hidden'); sTarget.classList.add('hidden'); sNocode.classList.add('hidden'); sDash.classList.add('hidden'); document.getElementById(`section-${tabId}`).classList.remove('hidden')
+  document.getElementById('result').classList.add('hidden'); hideError(); document.getElementById('auth-panel').classList.toggle('hidden', tabId === 'target' || tabId === 'dash')
   if(tabId === 'nocode' && activeModel) renderVisualizer();
+  if(tabId === 'dash') loadDashboard();
 }
 
 // Creds
@@ -447,7 +478,7 @@ async function publishNoCode() {
   try {
     setStatus('Chequeando Repositorio', 'Asegurando espacio en la nube...');
     try { await ghCall(`/repos/${user}/${repoName}`, token) }
-    catch (e) { if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, auto_init: true }); await new Promise(r => setTimeout(r, 4000)) } else throw e }
+    catch (e) { if (e.message.includes('Not Found')) { await ghCall('/user/repos', token, 'POST', { name: repoName, description: 'WebAR — publicado con AR Publisher', auto_init: true }); await new Promise(r => setTimeout(r, 4000)) } else throw e }
 
     setStatus('Procesando Vision Mágica', 'Convirtiendo tracking points...')
     const targetName = 'm_target'
@@ -455,7 +486,7 @@ async function publishNoCode() {
     const aspect = data.crop.height / data.crop.width; 
 
     // Entity Templates
-    let aframeEntity = '', aframeAssets = ''
+    let aframeEntity = '', aframeAssets = '', domAssets = ''
     const assetExt = ncAssetBlob.name.split('.').pop().toLowerCase()
     
     if (ncMode === '3d') {
@@ -465,12 +496,13 @@ async function publishNoCode() {
       aframeAssets = `<a-asset-item id="asset_model" src="asset.${assetExt}"></a-asset-item>`
       aframeEntity = `<a-entity gltf-model="#asset_model" position="${pos}" rotation="${rot}" scale="${scl}"></a-entity>`
     } else {
-      if (assetExt === 'mp4' || assetExt === 'webm') { aframeAssets = `<video id="asset_vid" autoplay loop="true" muted="true" playsinline="true" crossorigin="anonymous" src="asset.${assetExt}"></video>` }
-      else { aframeAssets = `<img id="asset_vid" src="asset.${assetExt}"></img>` }
-      // The physical dimension of a target is 1 unit width
-      // Note A-Frame image targets track upright by default, so we rotate X -90 to place it flat if we want standard floor tracking, or upright (0 0 0) for walls. By default, 8thwall flat targets are tracked horizontally, so a primitive entity attached to xrextras-named-image-target aligns with the poster. 
-      // The <a-video> component stands vertically, so we MUST rotate it -90 on X so it lies flat on the tracked image target!
-      aframeEntity = `<a-video src="#asset_vid" width="1" height="${aspect}" position="0 0 0" rotation="-90 0 0"></a-video>`
+      if (assetExt === 'mp4' || assetExt === 'webm') {
+        domAssets = `<video id="asset_vid" autoplay loop muted playsinline webkit-playsinline src="asset.${assetExt}"></video>`
+        aframeEntity = `<a-video src="#asset_vid" width="1" height="${aspect}" position="0 0 0" rotation="-90 0 0"></a-video>`
+      } else {
+        domAssets = `<img id="asset_img" crossorigin="anonymous" src="asset.${assetExt}"></img>`
+        aframeEntity = `<a-image src="#asset_img" width="1" height="${aspect}" position="0 0 0" rotation="-90 0 0"></a-image>`
+      }
     }
 
     const htmlTemplate = `<!DOCTYPE html>
@@ -479,7 +511,7 @@ async function publishNoCode() {
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
   <title>AR Experience</title>
   <style>body{margin:0;padding:0;overflow:hidden;background:#000}</style>
-  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"></`+`script>
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous"></`+`script>
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></`+`script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@latest/dist/xrextras.js"></`+`script>
   <script>
@@ -489,8 +521,9 @@ async function publishNoCode() {
   </`+`script>
 </head>
 <body>
+  <div style="display:none">${domAssets}</div>
   <a-scene xrweb="disableWorldTracking: true" xrextras-loading xrextras-runtime-error renderer="colorManagement: true" vr-mode-ui="enabled: false">
-    <a-assets>${aframeAssets}</a-assets>
+    <a-assets timeout="15000">${aframeAssets}</a-assets>
     <a-camera position="0 4 10" raycaster="objects: .cantap"></a-camera>
     <a-light type="ambient" intensity="1.2"></a-light>
     <a-entity xrextras-named-image-target="name: ${targetName}">${aframeEntity}</a-entity>
@@ -516,6 +549,64 @@ async function publishNoCode() {
 
     await startDeploy(user, token, repoName, treePayload)
   } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
+}
+
+// --- Dashboard Logic ---
+async function loadDashboard() {
+  const user = document.getElementById('gh-user').value.trim();
+  const token = document.getElementById('gh-token').value.trim();
+  const content = document.getElementById('dash-content');
+  
+  if (!user || !token) { 
+    content.innerHTML = '<div class="dash-empty">Configura tu usuario y token primero en otro tab.</div>'; 
+    return; 
+  }
+  
+  content.innerHTML = '<div class="dash-empty"><div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px;"></div>Buscando proyectos...</div>';
+  
+  try {
+    const repos = await ghCall(`/user/repos?sort=updated&per_page=100`, token);
+    const arRepos = repos.filter(r => r.description && (r.description.includes('AR Publisher') || r.description.includes('WebAR')));
+    
+    if (arRepos.length === 0) {
+      content.innerHTML = '<div class="dash-empty">No se encontraron proyectos creados con AR Publisher en tu cuenta.<br><br>Crea uno nuevo usando las otras pestañas.</div>';
+      return;
+    }
+
+    let html = '<div class="projects-grid">';
+    arRepos.forEach(r => {
+      const pagesUrl = `https://${r.owner.login}.github.io/${r.name}/`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=M&data=${encodeURIComponent(pagesUrl)}`;
+      const date = new Date(r.updated_at).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
+      html += `
+        <div class="project-card">
+          <h4>${r.name}</h4>
+          <p class="date">Actualizado ${date}</p>
+          <a href="${pagesUrl}" target="_blank" title="Abrir página web"><img class="qr" src="${qrUrl}" alt="QR Code" /></a>
+          <div class="btn-group">
+            <button onclick="updateWithZip('${r.name}')">📦 Reemplazar ZIP</button>
+            <button class="btn-vis" onclick="updateWithVisual('${r.name}')">⚡ Editar Visual</button>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    content.innerHTML = html;
+  } catch (err) {
+    content.innerHTML = `<div class="dash-empty" style="color:#fca5a5; border-color: rgba(239,68,68,0.3)">Error al cargar repositorios:<br>${err.message}</div>`;
+  }
+}
+
+function updateWithZip(repoName) {
+  switchTab('publish');
+  document.getElementById('repo-name').value = repoName;
+  document.getElementById('repo-name').focus();
+}
+
+function updateWithVisual(repoName) {
+  switchTab('nocode');
+  document.getElementById('nc-repo-name').value = repoName;
+  document.getElementById('nc-repo-name').focus();
 }
 </script>
 </body>
