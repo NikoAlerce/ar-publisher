@@ -166,7 +166,7 @@
   <style>
     .host-selector { display: flex; gap: 10px; margin-bottom: 15px; border-radius: 8px; background: rgba(255,255,255,0.05); padding: 5px; }
     .host-btn { flex: 1; padding: 10px; border-radius: 6px; cursor: pointer; text-align: center; border: 1px solid transparent; opacity: 0.6; transition: 0.2s; font-size: 13px; font-weight: 500; }
-    .host-btn.active { opacity: 1; background: rgba(255,255,255,0.1); border-color: var(--blue); color: var(--blue); }
+    .host-btn.active { opacity: 1; background: rgba(255,255,255,0.1); border-color: var(--blue); color: var(--blue); box-shadow: 0 0 10px rgba(0,255,136,0.2); }
     .host-btn-vc.active { border-color: #fff; color: #fff; }
     .host-btn-vc { border-color: transparent; }
   </style>
@@ -566,7 +566,7 @@ async function publishZip() {
       }))
     }
 
-    await startDeploy(user, token, repoName, treePayload)
+    await startDeploy(user, token, repoName, treePayload, { hosting: currentHostPublish, vToken: document.getElementById('vc-token').value.trim() })
   } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
 }
 
