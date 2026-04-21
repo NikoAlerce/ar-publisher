@@ -532,7 +532,11 @@ async function publishZip() {
       formData.append('repo', repoName);
       formData.append('vToken', vToken);
       
-      const res = await fetch('/api/deploy-vercel-direct', { method: 'POST', body: formData }).then(r => r.json());
+      const response = await fetch('/api/deploy-vercel-direct', { method: 'POST', body: formData });
+      if (response.status === 413) {
+        throw new Error('El archivo es demasiado grande para el modo Vercel Only (Límite 4.5MB). Usá la opción "Ambos" que usa GitHub para archivos pesados.');
+      }
+      const res = await response.json().catch(() => ({ ok: false, error: 'Respuesta del servidor no válida (posible límite de tamaño)' }));
       if (res.ok) { showResult(res.url); return; }
       else throw new Error(res.error);
     } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
