@@ -493,13 +493,21 @@ async function publishZip() {
     const hasIndex = files.find(f => f.toLowerCase().endsWith('index.html'));
     if (hasIndex && hasIndex.includes('/')) basePath = hasIndex.substring(0, hasIndex.lastIndexOf('/') + 1);
 
-    setStatus('Subiendo Assets', 'Sincronizando con la nube...')
-    for (const [path, file] of Object.entries(zip.files)) {
-      if (file.dir || !path.startsWith(basePath)) continue;
-      const relPath = path.replace(basePath, '');
-      const content = await file.async('arraybuffer');
-      const res = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(content), encoding: 'base64' })
-      treePayload.push({ path: relPath, mode: '100644', type: 'blob', sha: res.sha })
+    const filesToUpload = Object.entries(zip.files).filter(([path, file]) => !file.dir && path.startsWith(basePath))
+    const total = filesToUpload.length
+    let count = 0
+
+    const concurrency = 8
+    for (let i = 0; i < filesToUpload.length; i += concurrency) {
+      const chunk = filesToUpload.slice(i, i + concurrency)
+      await Promise.all(chunk.map(async ([path, file]) => {
+        const relPath = path.replace(basePath, '')
+        const content = await file.async('arraybuffer')
+        const res = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(content), encoding: 'base64' })
+        treePayload.push({ path: relPath, mode: '100644', type: 'blob', sha: res.sha })
+        count++
+        setStatus('Subiendo Assets', `Sincronizando archivos (${count}/${total})...`)
+      }))
     }
 
     await startDeploy(user, token, repoName, treePayload)
