@@ -16,13 +16,14 @@ function loadConfig() {
     return {
       github_user: process.env.GITHUB_USER || '',
       github_token: process.env.GITHUB_TOKEN || '',
+      vercel_token: process.env.VERCEL_TOKEN || '',
       default_repo: process.env.DEFAULT_REPO || 'ar-experience'
     }
   }
   try {
     return JSON.parse(fs.readFileSync(CFG_PATH, 'utf-8'))
   } catch (e) {
-    return { github_user: '', github_token: '', default_repo: 'ar-experience' }
+    return { github_user: '', github_token: '', vercel_token: '', default_repo: 'ar-experience' }
   }
 }
 
@@ -87,7 +88,7 @@ function listAll(dir, prefix = '') {
 // ── Helper: GitHub API Requests ───────────────────────────────
 async function ghApi(url, token, method = 'GET', body = null) {
   const headers = {
-    Authorization: `token ${token}`,
+    Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github.v3+json',
     'User-Agent': 'AR-Publisher',
     ...(body ? { 'Content-Type': 'application/json' } : {})
@@ -117,12 +118,7 @@ app.post('/api/publish', upload.single('zip'), async (req, res) => {
 
   const repoName = (req.body.repo || cfg.default_repo || 'ar-experience')
     .toLowerCase().replace(/[^a-z0-9-]/g, '-')
-  const user = cfg.github_user
-  const token = cfg.github_token
-
-  const extractDir = path.join(TMP, `pub-${Date.now()}`)
-  fs.mkdirSync(extractDir, { recursive: true })
-
+  
   try {
     // 1. Extraer ZIP localmente
     console.log('  Extrayendo ZIP...')
@@ -231,7 +227,7 @@ app.post('/api/publish', upload.single('zip'), async (req, res) => {
         await new Promise(r => setTimeout(r, attempt === 1 ? 3000 : 5000))
         const pRes = await fetch(`https://api.github.com/repos/${user}/${repoName}/pages`, {
           method: 'POST',
-          headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json', 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.switcheroo-preview+json', 'Content-Type': 'application/json' },
           body: JSON.stringify({ source: { branch: branchName, path: '/' } })
         })
         console.log(`  Pages intento ${attempt}: status ${pRes.status}`)
@@ -260,9 +256,46 @@ app.post('/api/publish', upload.single('zip'), async (req, res) => {
     console.error('═══ PUBLISH ERROR ═══')
     console.error(err)
     res.status(500).json({ ok: false, error: err.message || err.toString() })
-  } finally {
+    } finally {
     try { fs.rmSync(extractDir, { recursive: true, force: true }) } catch (e) {}
     try { fs.unlinkSync(req.file.path) } catch (e) {}
+  }
+})
+
+// ── API: POST /api/vercel-link ────────────────────────────────
+app.post('/api/vercel-link', async (req, res) => {
+  const { user, repoName, vToken, token } = req.body
+  if (!vToken) return res.status(400).json({ ok: false, error: 'Token de Vercel no provisto' })
+
+  try {
+    console.log(`  Vercel: vinculando repo ${user}/${repoName}...`)
+    
+    const vRes = await fetch('https://api.vercel.com/v11/projects', {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${vToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: repoName,
+        gitRepository: {
+          type: 'github',
+          repo: `${user}/${repoName}`
+        },
+        framework: null // Static site
+      })
+    })
+
+    const data = await vRes.json()
+    if (!vRes.ok) {
+       // If 409, it exists, check status
+       if (vRes.status === 409) return res.json({ ok: true, url: `https://${repoName}.vercel.app` })
+       throw new Error(data.error.message || 'Error vinculando a Vercel')
+    }
+
+    res.json({ ok: true, url: `https://${repoName}.vercel.app` })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
   }
 })
 

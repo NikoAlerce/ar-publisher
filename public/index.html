@@ -154,11 +154,22 @@
   </div>
 
   <div class="config-panel" id="auth-panel">
-    <div class="config-row" style="margin-bottom:0">
+    <div class="config-row" style="margin-bottom:10px">
       <div class="c-group"><label>Usuario de GitHub</label><input type="text" class="c-input" id="gh-user" spellcheck="false" /></div>
-      <div class="c-group"><label>GitHub Token</label><input type="password" class="c-input" id="gh-token" spellcheck="false" /></div>
+      <div class="c-group"><label>GitHub TokenClassic</label><input type="password" class="c-input" id="gh-token" spellcheck="false" /></div>
+    </div>
+    <div class="config-row">
+      <div class="c-group"><label>Vercel Personal Token</label><input type="password" class="c-input" id="vc-token" spellcheck="false" placeholder="github_pat_... o vercel_..." /></div>
     </div>
   </div>
+
+  <style>
+    .host-selector { display: flex; gap: 10px; margin-bottom: 15px; border-radius: 8px; background: rgba(255,255,255,0.05); padding: 5px; }
+    .host-btn { flex: 1; padding: 10px; border-radius: 6px; cursor: pointer; text-align: center; border: 1px solid transparent; opacity: 0.6; transition: 0.2s; font-size: 13px; font-weight: 500; }
+    .host-btn.active { opacity: 1; background: rgba(255,255,255,0.1); border-color: var(--blue); color: var(--blue); }
+    .host-btn-vc.active { border-color: #fff; color: #fff; }
+    .host-btn-vc { border-color: transparent; }
+  </style>
 
   <!-- SECTION 1 -->
   <div id="section-publish" class="hidden">
@@ -169,6 +180,10 @@
     </div>
     <div class="file-bar hidden" id="zip-bar"><span>📦</span><span class="name" id="zip-name"></span><button class="clear" onclick="clearZip()">✕</button></div>
     <div class="repo-row"><span class="repo-label">Nombre del repo:</span><input class="c-input" id="repo-name" spellcheck="false" style="width:200px"/></div>
+    <div class="host-selector" id="host-publish">
+      <div class="host-btn active hb-gh" onclick="setHost('gh', 'publish')">GitHub Pages</div>
+      <div class="host-btn hb-vc" onclick="setHost('vc', 'publish')">Vercel (Fast)</div>
+    </div>
     <button class="pub-btn" id="pub-btn" onclick="publishZip()" disabled>Publicar a Internet</button>
   </div>
 
@@ -230,6 +245,10 @@
     </div>
 
     <div class="repo-row"><span class="repo-label">URL del sitio:</span><input class="c-input" id="nc-repo-name" spellcheck="false" placeholder="mis-zapatillas-ar" style="width:200px"/></div>
+    <div class="host-selector" id="host-nocode">
+      <div class="host-btn active hb-gh" onclick="setHost('gh', 'nocode')">GitHub Pages</div>
+      <div class="host-btn hb-vc" onclick="setHost('vc', 'nocode')">Vercel (Fast)</div>
+    </div>
     <button class="pub-btn btn-orange" id="nc-btn" onclick="publishNoCode()" disabled>🚀 Crear Proyecto Mágico</button>
   </div>
 
@@ -280,8 +299,29 @@ function switchTab(tabId) {
 // Creds
 document.getElementById('gh-user').value = localStorage.getItem('ar_usr') || ''
 document.getElementById('gh-token').value = localStorage.getItem('ar_tok') || ''
+document.getElementById('vc-token').value = localStorage.getItem('ar_vct') || ''
+
+let currentHostPublish = 'gh';
+let currentHostNocode = 'gh';
+
+function setHost(host, tab) {
+  const container = document.getElementById(`host-${tab}`);
+  const btns = container.querySelectorAll('.host-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  
+  if (host === 'gh') {
+    container.querySelector('.hb-gh').classList.add('active');
+    if (tab === 'publish') currentHostPublish = 'gh'; else currentHostNocode = 'gh';
+  } else {
+    container.querySelector('.hb-vc').classList.add('active');
+    if (tab === 'publish') currentHostPublish = 'vc'; else currentHostNocode = 'vc';
+  }
+}
+
+// Persist tokens on change
 document.getElementById('gh-user').addEventListener('input', e => localStorage.setItem('ar_usr', e.target.value.trim()))
 document.getElementById('gh-token').addEventListener('input', e => localStorage.setItem('ar_tok', e.target.value.trim()))
+document.getElementById('vc-token').addEventListener('input', e => localStorage.setItem('ar_vct', e.target.value.trim()))
 
 function showError(msg) { const e = document.getElementById('error'); e.textContent = msg; e.classList.remove('hidden') }
 function hideError() { document.getElementById('error').classList.add('hidden') }
@@ -582,7 +622,10 @@ function clearNoCode() {
   if (vsTransform) vsTransform.detach(); if (activeModel) vsScene.remove(activeModel); activeModel = null; renderVisualizer();
 }
 
-async function startDeploy(user, token, repoName, treePayload) {
+async function startDeploy(user, token, repoName, treePayload, opts = {}) {
+    const hosting = opts.hosting || 'gh'
+    const vToken = opts.vToken || ''
+
     setStatus('Subiendo a GitHub...', `Enviando estructura de archivos...`)
     const treeRes = await ghCall(`/repos/${user}/${repoName}/git/trees`, token, 'POST', { tree: treePayload })
     const commitRes = await ghCall(`/repos/${user}/${repoName}/git/commits`, token, 'POST', { message: 'Deploy via AR Publisher', tree: treeRes.sha })
@@ -594,6 +637,24 @@ async function startDeploy(user, token, repoName, treePayload) {
       catch(e2) { currentBranch = 'master'; try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/master`, token, 'PATCH', { sha: commitRes.sha, force: true }) } catch(e3) { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/master', sha: commitRes.sha }) } }
     }
 
+    if (hosting === 'vc' && vToken) {
+      setStatus('Conectando Vercel', 'Activando hosting ultra-rápido...')
+      try {
+        const vcRes = await fetch('/api/vercel-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user, repoName, vToken, token })
+        }).then(r => r.json())
+        
+        if (vcRes.ok) {
+          showResult(vcRes.url); return;
+        } else throw new Error(vcRes.error)
+      } catch (err) {
+        showError(`⚠️ No se pudo conectar a Vercel automáticamente: ${err.message}. El proyecto está en GitHub.`);
+      }
+    }
+
+    // Fallback or explicit GitHub Pages
     setStatus('Activando Pages', 'Levantando servidor gratis online...')
     for(let att=0; att<3; att++){ 
       await new Promise(r => setTimeout(r, 4000)); 
@@ -606,9 +667,12 @@ async function startDeploy(user, token, repoName, treePayload) {
         if (pRes.ok || pRes.status === 409) break; // 409 means already building, which is fine
       } catch(e){} 
     }
-    const pagesUrl = `https://${user}.github.io/${repoName}/`
-    document.getElementById('r-url').href = pagesUrl; document.getElementById('r-url').innerText = pagesUrl
-    document.getElementById('r-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(pagesUrl)}`
+    showResult(`https://${user}.github.io/${repoName}/`)
+}
+
+function showResult(url) {
+    document.getElementById('r-url').href = url; document.getElementById('r-url').innerText = url
+    document.getElementById('r-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(url)}`
     document.getElementById('loading').classList.add('hidden'); document.getElementById('result').classList.remove('hidden'); document.getElementById('result').scrollIntoView({behavior: 'smooth'})
 }
 
@@ -689,7 +753,7 @@ async function publishNoCode() {
     await uploadBlob(`image-targets/${data.metadata.resources.originalImage}`, data.buffers.original)
     await uploadBlob(`image-targets/${data.metadata.resources.luminanceImage}`, data.buffers.luminance) 
 
-    await startDeploy(user, token, repoName, treePayload)
+    await startDeploy(user, token, repoName, treePayload, { hosting: currentHostNocode, vToken: document.getElementById('vc-token').value.trim() })
   } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
 }
 
