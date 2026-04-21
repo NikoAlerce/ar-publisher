@@ -380,6 +380,30 @@ app.get('/api/all-projects', async (req, res) => {
   }
 })
 
+// ── API: POST /api/delete-vercel-project ──────────────────────
+app.post('/api/delete-vercel-project', async (req, res) => {
+  const { name, vToken } = req.body
+  if (!name || !vToken) return res.status(400).json({ ok: false, error: 'Nombre o Token faltante' })
+
+  try {
+    console.log(`  Vercel: eliminando proyecto ${name}...`)
+    const vRes = await fetch(`https://api.vercel.com/v9/projects/${name}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${vToken}` }
+    })
+
+    if (!vRes.ok) {
+      const data = await vRes.json()
+      // If 404, it's already gone, which is fine
+      if (vRes.status !== 404) throw new Error(data.error?.message || 'Error eliminando proyecto en Vercel')
+    }
+
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 // Vercel requires exporting the app, not starting a listening server directly normally,
 // but for local testing we start it.
 if (require.main === module) {

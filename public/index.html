@@ -826,7 +826,7 @@ async function loadDashboard() {
           <div class="btn-group">
             <button onclick="updateWithZip('${p.name}')">📦 Update</button>
             <button class="btn-vis" onclick="updateWithVisual('${p.name}')">⚡ Edit</button>
-            ${p.provider !== 'vc' ? `<button class="btn-del" onclick="deleteProject('${p.name}')">🗑️ Borrar</button>` : ''}
+            <button class="btn-del" onclick="deleteProject('${p.name}', '${p.provider}')">🗑️ Borrar</button>
           </div>
         </div>
       `;
@@ -850,24 +850,31 @@ function updateWithVisual(repoName) {
   document.getElementById('nc-repo-name').focus();
 }
 
-async function deleteProject(repoName) {
-  const user = document.getElementById('gh-user').value.trim();
-  const token = document.getElementById('gh-token').value.trim();
+async function deleteProject(repoName, provider = 'gh') {
+  const ghUser = document.getElementById('gh-user').value.trim();
+  const ghToken = document.getElementById('gh-token').value.trim();
+  const vcToken = document.getElementById('vc-token').value.trim();
   
-  if(!confirm(`⚠️ ¿Estás 100% seguro de que deseas borrar DEFINITIVAMENTE el repositorio '${repoName}'?\n\nLa URL del proyecto y todos sus archivos dejarán de existir en internet. Esta acción no se puede deshacer.`)) return;
+  const providerName = provider === 'gh' ? 'GitHub' : 'Vercel';
+  if(!confirm(`⚠️ ¿Estás 100% seguro de que deseas borrar DEFINITIVAMENTE el proyecto '${repoName}' en ${providerName}?\n\nEsta acción no se puede deshacer.`)) return;
 
   const content = document.getElementById('dash-content');
-  content.innerHTML = `<div class="dash-empty"><div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px; border-top-color: #ef4444;"></div>Destruyendo código y apagando servidores...</div>`;
+  content.innerHTML = `<div class="dash-empty"><div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px; border-top-color: #ef4444;"></div>Eliminando rastro en ${providerName}...</div>`;
   
   try {
-    await ghCall(`/repos/${user}/${repoName}`, token, 'DELETE');
-    loadDashboard(); // Refresh grid
-  } catch (err) {
-    if (err.message.includes('403') || err.message.includes('Forbidden') || err.message.includes('Not Found')) {
-      alert('🔒 ¡Permiso Denegado!\n\nGitHub rechazó la eliminación porque parece que el Token que estás usando no tiene marcado el permiso "delete_repo". Ve a las opciones de GitHub Developer Settings y añadele ese scope.');
+    if (provider === 'gh') {
+      await ghCall(`/repos/${ghUser}/${repoName}`, ghToken, 'DELETE');
     } else {
-      alert(`Error al intentar borrar: ${err.message}`);
+      const res = await fetch('/api/delete-vercel-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: repoName, vToken: vcToken })
+      }).then(r => r.json());
+      if (!res.ok) throw new Error(res.error);
     }
+    loadDashboard(); 
+  } catch (err) {
+    alert(`Error al borrar: ${err.message}`);
     loadDashboard();
   }
 }
