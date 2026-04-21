@@ -5,6 +5,7 @@ const fs = require('fs')
 const os = require('os')
 const fetch = require('node-fetch')
 const AdmZip = require('adm-zip')
+const crypto = require('crypto')
 
 const app = express()
 const PORT = process.env.PORT || 3333
@@ -272,28 +273,108 @@ app.post('/api/vercel-link', async (req, res) => {
     
     const vRes = await fetch('https://api.vercel.com/v11/projects', {
       method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${vToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: repoName,
-        gitRepository: {
-          type: 'github',
-          repo: `${user}/${repoName}`
-        },
-        framework: null // Static site
-      })
+      headers: { Authorization: `Bearer ${vToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: repoName, gitRepository: { type: 'github', repo: `${user}/${repoName}` }, framework: null })
     })
 
     const data = await vRes.json()
-    if (!vRes.ok) {
-       // If 409, it exists, check status
-       if (vRes.status === 409) return res.json({ ok: true, url: `https://${repoName}.vercel.app` })
-       throw new Error(data.error.message || 'Error vinculando a Vercel')
+    if (!vRes.ok && vRes.status !== 409) throw new Error(data.error.message || 'Error vinculando a Vercel')
+    res.json({ ok: true, url: `https://${repoName}.vercel.app` })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// ── API: POST /api/deploy-vercel-direct (Súper Rápido) ──────────
+app.post('/api/deploy-vercel-direct', upload.single('zip'), async (req, res) => {
+  const { vToken, repo: repoName } = req.body
+  if (!req.file || !vToken) return res.status(400).json({ ok: false, error: 'Archivo o Token faltante' })
+
+  try {
+    console.log(`  Vercel Direct: publicando ${repoName}...`)
+    const zip = new AdmZip(req.file.path)
+    const extractDir = path.join(TMP, `vc-${Date.now()}`)
+    fs.mkdirSync(extractDir, { recursive: true })
+    zip.extractAllTo(extractDir, true)
+
+    let publishDir = findIndexHtml(extractDir) || extractDir
+    const allFiles = listAll(publishDir)
+    const filesToUpload = []
+
+    for (const relPath of allFiles) {
+      const full = path.join(publishDir, relPath)
+      const buffer = fs.readFileSync(full)
+      const sha = crypto.createHash('sha1').update(buffer).digest('hex')
+      
+      // Upload file to Vercel
+      await fetch('https://api.vercel.com/v2/files', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${vToken}`, 'x-vercel-digest': sha, 'Content-Length': buffer.length },
+        body: buffer
+      })
+      filesToUpload.push({ file: relPath.replace(/\\/g, '/'), sha, size: buffer.length })
     }
 
-    res.json({ ok: true, url: `https://${repoName}.vercel.app` })
+    // Create deployment
+    const dRes = await fetch('https://api.vercel.com/v13/deployments', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${vToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: repoName,
+        files: filesToUpload,
+        projectSettings: { framework: null }
+      })
+    })
+
+    const dData = await dRes.json()
+    if (!dRes.ok) throw new Error(dData.error?.message || 'Error en Vercel Deploy')
+
+    fs.rmSync(extractDir, { recursive: true, force: true })
+    res.json({ ok: true, url: `https://${dData.alias[0] || dData.url}` })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// ── API: GET /api/all-projects ────────────────────────────────
+app.get('/api/all-projects', async (req, res) => {
+  const { ghUser, ghToken, vcToken } = req.query
+  if (!ghUser || !ghToken) return res.status(400).json({ ok: false, error: 'Credenciales faltantes' })
+
+  try {
+    const results = []
+    
+    // GitHub
+    try {
+      const repos = await ghApi(`/user/repos?sort=updated&per_page=100`, ghToken)
+      repos.filter(r => r.name !== 'ar-publisher' && r.description && r.description.includes('AR Publisher'))
+           .forEach(r => results.push({ name: r.name, url: `https://${r.owner.login}.github.io/${r.name}/`, provider: 'gh', updated: r.updated_at }))
+    } catch(e) { console.error('Error fetching GH projects:', e.message) }
+
+    // Vercel
+    if (vcToken) {
+      try {
+        const vRes = await fetch('https://api.vercel.com/v9/projects', {
+          headers: { Authorization: `Bearer ${vcToken}` }
+        }).then(r => r.json())
+        if (vRes.projects) {
+          vRes.projects.forEach(p => {
+             // Only if not already in GH (to avoid duplicates if linked)
+             if (!results.find(ext => ext.name === p.name)) {
+                results.push({ name: p.name, url: `https://${p.link?.repo ? p.name : p.targets?.production?.url || p.name + '.vercel.app'}`, provider: 'vc', updated: p.updatedAt })
+             } else {
+                // If it's in both, mark as 'both'
+                const existing = results.find(ext => ext.name === p.name)
+                existing.provider = 'both'
+                existing.url = `https://${p.name}.vercel.app` // Prefer Vercel URL
+             }
+          })
+        }
+      } catch(e) { console.error('Error fetching VC projects:', e.message) }
+    }
+
+    results.sort((a,b) => new Date(b.updated) - new Date(a.updated))
+    res.json({ ok: true, projects: results })
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message })
   }

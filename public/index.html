@@ -181,8 +181,9 @@
     <div class="file-bar hidden" id="zip-bar"><span>📦</span><span class="name" id="zip-name"></span><button class="clear" onclick="clearZip()">✕</button></div>
     <div class="repo-row"><span class="repo-label">Nombre del repo:</span><input class="c-input" id="repo-name" spellcheck="false" style="width:200px"/></div>
     <div class="host-selector" id="host-publish">
-      <div class="host-btn active hb-gh" onclick="setHost('gh', 'publish')">GitHub Pages</div>
-      <div class="host-btn hb-vc" onclick="setHost('vc', 'publish')">Vercel (Fast)</div>
+      <div class="host-btn active hb-gh" onclick="setHost('gh', 'publish')" title="Lento pero seguro">GitHub</div>
+      <div class="host-btn hb-both" onclick="setHost('both', 'publish')" title="Seguridad + Velocidad">Ambos</div>
+      <div class="host-btn hb-vc" onclick="setHost('vc_direct', 'publish')" title="Ultra Rápido (Sin Git)">Vercel Only 🚀</div>
     </div>
     <button class="pub-btn" id="pub-btn" onclick="publishZip()" disabled>Publicar a Internet</button>
   </div>
@@ -246,8 +247,9 @@
 
     <div class="repo-row"><span class="repo-label">URL del sitio:</span><input class="c-input" id="nc-repo-name" spellcheck="false" placeholder="mis-zapatillas-ar" style="width:200px"/></div>
     <div class="host-selector" id="host-nocode">
-      <div class="host-btn active hb-gh" onclick="setHost('gh', 'nocode')">GitHub Pages</div>
-      <div class="host-btn hb-vc" onclick="setHost('vc', 'nocode')">Vercel (Fast)</div>
+      <div class="host-btn active hb-gh" onclick="setHost('gh', 'nocode')" title="Lento pero seguro">GitHub</div>
+      <div class="host-btn hb-both" onclick="setHost('both', 'nocode')" title="Seguridad + Velocidad">Ambos</div>
+      <div class="host-btn hb-vc" onclick="setHost('vc_direct', 'nocode')" title="Ultra Rápido (Sin Git)">Vercel Only 🚀</div>
     </div>
     <button class="pub-btn btn-orange" id="nc-btn" onclick="publishNoCode()" disabled>🚀 Crear Proyecto Mágico</button>
   </div>
@@ -309,13 +311,8 @@ function setHost(host, tab) {
   const btns = container.querySelectorAll('.host-btn');
   btns.forEach(b => b.classList.remove('active'));
   
-  if (host === 'gh') {
-    container.querySelector('.hb-gh').classList.add('active');
-    if (tab === 'publish') currentHostPublish = 'gh'; else currentHostNocode = 'gh';
-  } else {
-    container.querySelector('.hb-vc').classList.add('active');
-    if (tab === 'publish') currentHostPublish = 'vc'; else currentHostNocode = 'vc';
-  }
+  container.querySelector(`.hb-${host === 'vc_direct' ? 'vc' : host}`).classList.add('active');
+  if (tab === 'publish') currentHostPublish = host; else currentHostNocode = host;
 }
 
 // Persist tokens on change
@@ -521,8 +518,26 @@ function clearZip() {
 
 async function publishZip() {
   const user = document.getElementById('gh-user').value.trim(), token = document.getElementById('gh-token').value.trim(), repoName = document.getElementById('repo-name').value.trim()
-  if (!user || !token || !repoName) return showError('Configurá usuario, token y nombre del repo.')
+  const vToken = document.getElementById('vc-token').value.trim()
+  const hosting = currentHostPublish
+
+  if (hosting === 'vc_direct' && !vToken) return showError('Token de Vercel necesario para modo ultra-rápido.')
   hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
+
+  if (hosting === 'vc_direct') {
+    setStatus('Vercel Express', 'Lanzando directamente a la nube (sin Git)...')
+    try {
+      const formData = new FormData();
+      formData.append('zip', zipFile);
+      formData.append('repo', repoName);
+      formData.append('vToken', vToken);
+      
+      const res = await fetch('/api/deploy-vercel-direct', { method: 'POST', body: formData }).then(r => r.json());
+      if (res.ok) { showResult(res.url); return; }
+      else throw new Error(res.error);
+    } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
+    return;
+  }
 
   try {
     setStatus('Creando Repositorio', 'Asegurando espacio en GitHub...')
@@ -637,7 +652,7 @@ async function startDeploy(user, token, repoName, treePayload, opts = {}) {
       catch(e2) { currentBranch = 'master'; try { await ghCall(`/repos/${user}/${repoName}/git/refs/heads/master`, token, 'PATCH', { sha: commitRes.sha, force: true }) } catch(e3) { await ghCall(`/repos/${user}/${repoName}/git/refs`, token, 'POST', { ref: 'refs/heads/master', sha: commitRes.sha }) } }
     }
 
-    if (hosting === 'vc' && vToken) {
+    if ((hosting === 'both' || hosting === 'vc') && vToken) {
       setStatus('Conectando Vercel', 'Activando hosting ultra-rápido...')
       try {
         const vcRes = await fetch('/api/vercel-link', {
@@ -743,56 +758,75 @@ async function publishNoCode() {
 
     setStatus('Asimilando Assets', 'Codificando recursos en memoria...')
     const assetBuffer = await new Promise(r => { const reader = new FileReader(); reader.onload = ()=>r(reader.result); reader.readAsArrayBuffer(ncAssetBlob) })
-    const assetSha = (await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(assetBuffer), encoding: 'base64' })).sha
-    treePayload.push({ path: `asset.${assetExt}`, mode: '100644', type: 'blob', sha: assetSha })
+    const hosting = currentHostNocode
+    const vToken = document.getElementById('vc-token').value.trim()
 
-    const uploadBlob = async (pathStr, buffer) => {
-      const sha = (await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(buffer), encoding: 'base64' })).sha
-      treePayload.push({ path: pathStr, mode: '100644', type: 'blob', sha })
+    if (hosting === 'vc_direct') {
+       if (!vToken) return showError('Token de Vercel necesario.')
+       setStatus('Vercel Express', 'Empaquetando y lanzando...')
+       const zip = new JSZip()
+       zip.file('index.html', htmlTemplate)
+       zip.file(`asset.${assetExt}`, ncAssetBlob)
+       const targets = zip.folder('image-targets')
+       targets.file(data.metadata.resources.originalImage, data.buffers.original)
+       targets.file(data.metadata.resources.luminanceImage, data.buffers.luminance)
+       
+       const content = await zip.generateAsync({ type: 'blob' })
+       const formData = new FormData()
+       formData.append('zip', content, 'project.zip')
+       formData.append('repo', repoName)
+       formData.append('vToken', vToken)
+       
+       const res = await fetch('/api/deploy-vercel-direct', { method: 'POST', body: formData }).then(r => r.json())
+       if (res.ok) { showResult(res.url); return; }
+       else throw new Error(res.error)
+       return
     }
-    await uploadBlob(`image-targets/${data.metadata.resources.originalImage}`, data.buffers.original)
-    await uploadBlob(`image-targets/${data.metadata.resources.luminanceImage}`, data.buffers.luminance) 
 
-    await startDeploy(user, token, repoName, treePayload, { hosting: currentHostNocode, vToken: document.getElementById('vc-token').value.trim() })
+    await startDeploy(user, token, repoName, treePayload, { hosting: currentHostNocode, vToken })
   } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
 }
 
 // --- Dashboard Logic ---
 async function loadDashboard() {
-  const user = document.getElementById('gh-user').value.trim();
-  const token = document.getElementById('gh-token').value.trim();
+  const ghUser = document.getElementById('gh-user').value.trim();
+  const ghToken = document.getElementById('gh-token').value.trim();
+  const vcToken = document.getElementById('vc-token').value.trim();
   const content = document.getElementById('dash-content');
   
-  if (!user || !token) { 
-    content.innerHTML = '<div class="dash-empty">Configura tu usuario y token primero en otro tab.</div>'; 
+  if (!ghUser || !ghToken) { 
+    content.innerHTML = '<div class="dash-empty">Configura GitHub primero para ver el Dashboard.</div>'; 
     return; 
   }
   
-  content.innerHTML = '<div class="dash-empty"><div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px;"></div>Buscando proyectos...</div>';
+  content.innerHTML = '<div class="dash-empty"><div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px;"></div>Consultando proveedores...</div>';
   
   try {
-    const repos = await ghCall(`/user/repos?sort=updated&per_page=100`, token);
-    const arRepos = repos.filter(r => r.name.toLowerCase() !== 'ar-publisher' && r.description && (r.description.includes('AR Publisher') || r.description.includes('WebAR')));
+    const res = await fetch(`/api/all-projects?ghUser=${ghUser}&ghToken=${ghToken}&vcToken=${vcToken}`).then(r => r.json());
+    if (!res.ok) throw new Error(res.error);
     
-    if (arRepos.length === 0) {
-      content.innerHTML = '<div class="dash-empty">No se encontraron proyectos creados con AR Publisher en tu cuenta.<br><br>Crea uno nuevo usando las otras pestañas.</div>';
+    if (res.projects.length === 0) {
+      content.innerHTML = '<div class="dash-empty">No se encontraron proyectos.</div>';
       return;
     }
 
     let html = '<div class="projects-grid">';
-    arRepos.forEach(r => {
-      const pagesUrl = `https://${r.owner.login}.github.io/${r.name}/`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=M&data=${encodeURIComponent(pagesUrl)}`;
-      const date = new Date(r.updated_at).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
+    res.projects.forEach(p => {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=M&data=${encodeURIComponent(p.url)}`;
+      const date = new Date(p.updated).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' });
+      const provIcon = p.provider === 'gh' ? '🐙' : (p.provider === 'vc' ? '▲' : '🐙+▲');
       html += `
         <div class="project-card">
-          <h4>${r.name}</h4>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+            <h4 style="margin:0">${p.name}</h4>
+            <span style="font-size:12px; opacity:0.6">${provIcon}</span>
+          </div>
           <p class="date">Actualizado ${date}</p>
-          <a href="${pagesUrl}" target="_blank" title="Abrir página web"><img class="qr" src="${qrUrl}" alt="QR Code" /></a>
+          <a href="${p.url}" target="_blank" title="Abrir página web"><img class="qr" src="${qrUrl}" alt="QR Code" /></a>
           <div class="btn-group">
-            <button onclick="updateWithZip('${r.name}')">📦 Reemplazar ZIP</button>
-            <button class="btn-vis" onclick="updateWithVisual('${r.name}')">⚡ Editar Visual</button>
-            <button class="btn-del" onclick="deleteProject('${r.name}')">🗑️ Borrar Proyecto</button>
+            <button onclick="updateWithZip('${p.name}')">📦 Update</button>
+            <button class="btn-vis" onclick="updateWithVisual('${p.name}')">⚡ Edit</button>
+            ${p.provider !== 'vc' ? `<button class="btn-del" onclick="deleteProject('${p.name}')">🗑️ Borrar</button>` : ''}
           </div>
         </div>
       `;
@@ -800,7 +834,7 @@ async function loadDashboard() {
     html += '</div>';
     content.innerHTML = html;
   } catch (err) {
-    content.innerHTML = `<div class="dash-empty" style="color:#fca5a5; border-color: rgba(239,68,68,0.3)">Error al cargar repositorios:<br>${err.message}</div>`;
+    content.innerHTML = `<div class="dash-empty" style="color:#fca5a5; border-color: rgba(239,68,68,0.3)">Error al cargar dashboard:<br>${err.message}</div>`;
   }
 }
 
