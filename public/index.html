@@ -569,7 +569,7 @@ async function loadDashboard() {
   
   try {
     const repos = await ghCall(`/user/repos?sort=updated&per_page=100`, token);
-    const arRepos = repos.filter(r => r.description && (r.description.includes('AR Publisher') || r.description.includes('WebAR')));
+    const arRepos = repos.filter(r => r.name.toLowerCase() !== 'ar-publisher' && r.description && (r.description.includes('AR Publisher') || r.description.includes('WebAR')));
     
     if (arRepos.length === 0) {
       content.innerHTML = '<div class="dash-empty">No se encontraron proyectos creados con AR Publisher en tu cuenta.<br><br>Crea uno nuevo usando las otras pestañas.</div>';
