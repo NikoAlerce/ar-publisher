@@ -479,6 +479,10 @@ async function publishZip() {
   hideError(); document.getElementById('result').classList.add('hidden'); document.getElementById('loading').classList.remove('hidden')
 
   try {
+    setStatus('Creando Repositorio', 'Asegurando espacio en GitHub...')
+    try { await ghCall(`/repos/${user}/${repoName}`, token) }
+    catch(e) { if(e.message.includes('Not Found')) await ghCall('/user/repos', token, 'POST', { name: repoName, description: 'Proyecto AR Publisher (ZIP Import)', auto_init: true }); await new Promise(r => setTimeout(r, 4000)) }
+
     setStatus('Iniciando Proyecto', 'Preparando archivos del ZIP...')
     const zip = await JSZip.loadAsync(zipFile)
     const treePayload = [{ path: '.nojekyll', mode: '100644', type: 'blob', content: '' }]
@@ -497,10 +501,6 @@ async function publishZip() {
       const res = await ghCall(`/repos/${user}/${repoName}/git/blobs`, token, 'POST', { content: bufferToBase64(content), encoding: 'base64' })
       treePayload.push({ path: relPath, mode: '100644', type: 'blob', sha: res.sha })
     }
-
-    setStatus('Creando Repositorio', 'Asegurando espacio en GitHub...')
-    try { await ghCall(`/repos/${user}/${repoName}`, token) }
-    catch(e) { if(e.message.includes('Not Found')) await ghCall('/user/repos', token, 'POST', { name: repoName, description: 'Proyecto AR Publisher (ZIP Import)', auto_init: true }); await new Promise(r => setTimeout(r, 4000)) }
 
     await startDeploy(user, token, repoName, treePayload)
   } catch (err) { document.getElementById('loading').classList.add('hidden'); showError(err.message) }
